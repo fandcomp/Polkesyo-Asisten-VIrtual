@@ -1,0 +1,10 @@
+Metrik,Nilai,Sumber_Data,Catatan
+Average Total Latency,8119.6 ms,chat_evaluation_logs_vps.csv (n=258 - SELURUH traffic produksi nyata),"Jauh lebih tinggi dari hasil dev lokal (4724ms) - traffic produksi mencampur soal gold-QA test DAN percakapan partisipan studi sungguhan yang lebih panjang/kompleks"
+P95 Latency,22529.0 ms,sama,~22,5 detik - jauh lebih tinggi dari P95 dev lokal (10142ms). Perlu investigasi kalau ini dianggap terlalu lambat untuk UX produksi
+Average Retrieval Latency,56.0 ms,n=243,Jauh LEBIH CEPAT dari dev lokal (307ms) - kemungkinan karena corpus produksi lebih kecil (170 chunk vs 302 chunk lokal), lebih sedikit data untuk di-scan
+Average GraphRAG Latency,2.5 ms,n=243,Jauh lebih cepat dari dev lokal (157ms) - sama, kemungkinan terkait ukuran graph yang lebih kecil di produksi
+Average ACIF Latency,3.9 ms,n=258,Konsisten cepat seperti dev lokal (8.3ms)
+Average LLM Latency,6669.9 ms,n=243,Sedikit lebih tinggi dari dev lokal (5759ms) - variasi wajar tergantung kompleksitas pertanyaan real
+Error Rate,0%,n=258,Tidak ada error tercatat - baik untuk stabilitas produksi
+Fallback Rate,57.75%,149/258,"Lebih rendah dari dev lokal (80,49%) - traffic produksi termasuk banyak pertanyaan yang berhasil dijawab (103 verified dari 258)"
+Citation Coverage (real usage),58.91%,152/258,"JAUH LEBIH TINGGI dari dev lokal (39,02% atau 43,9%) - traffic produksi riil menunjukkan performa sitasi lebih baik dari sampel sintetis 41 soal gold QA"

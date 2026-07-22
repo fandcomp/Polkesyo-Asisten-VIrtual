@@ -1,0 +1,9 @@
+Komponen,Rata_rata_ms,N,Catatan
+Query Understanding,16.0,29,"estimasi = Total(subset n=29) - (Retrieval+GraphRAG+ACIF+LLM+Output_Verification), dihitung SQL langsung dari chat_evaluation_logs run 2026-07-18 (run_id ccc41b97...)"
+Retrieval,137.7,29,"dihitung dari chat_evaluation_logs run 2026-07-18. N=29, BUKAN 41 - kolom ini NULL untuk 12 soal yang diblokir/fallback sebelum retrieval dijalankan (Gate 1 block atau di luar domain). N=41 di run 16 Juli sebelumnya kurang tepat, diperbaiki di run ini."
+GraphRAG,28.4,29,"sama seperti di atas - N=29"
+ACIF,8.1,41,"N=41 (BUKAN 29) - ini satu-satunya komponen yang overhead-nya tercatat untuk SEMUA soal termasuk yang diblokir Gate 1, karena Gate 1 sendiri adalah bagian dari ACIF."
+LLM,5084.0,29,"dihitung dari chat_evaluation_logs run 2026-07-18. N=29 (hanya soal yang benar-benar memanggil LLM)"
+Output Verification (Gate 5),947.4,29,"sama seperti di atas - N=29"
+Total,4404.2,41,"N=41 (rata-rata SEMUA soal, termasuk yang berhenti di Gate 1). Turun dari 4561.3ms (run 16 Juli) - konsisten dengan temuan Tier 1 acif_comparison_summary.csv bahwa ACIF makin cepat rata-rata di run ulang ini."
+,,,"Catatan: Total (4404ms, n=41) lebih kecil dari rata-rata LLM (5084ms, n=29) karena basis rata-ratanya berbeda - LLM hanya dihitung dari soal yang benar-benar memanggil LLM, sedangkan Total dirata-rata dari SEMUA 41 soal termasuk yang berhenti lebih awal di ACIF Gate 1 (fallback/block, nyaris tanpa panggilan LLM, ~2-9ms). Ini bukan kesalahan data - jelaskan perbedaan basis rata-rata ini di teks Bab 4.4."

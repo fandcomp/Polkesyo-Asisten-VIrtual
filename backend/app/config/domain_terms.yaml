@@ -1,0 +1,81 @@
+# Domain vocabulary for the Query Understanding Layer.
+# Editable configuration — keys are matched on normalized (lowercase, punctuation-stripped) text.
+# Acronym keys must be whole tokens; expansions are canonical formal Indonesian.
+version: 1
+
+acronyms:
+  spmb:
+    expansion: seleksi penerimaan mahasiswa baru
+    aliases: [pmb, penerimaan mahasiswa baru, seleksi mahasiswa baru]
+  pmb:
+    expansion: penerimaan mahasiswa baru
+    aliases: [spmb]
+  maba:
+    expansion: mahasiswa baru
+    aliases: []
+  ukt:
+    expansion: uang kuliah tunggal
+    aliases: [biaya kuliah]
+  krs:
+    expansion: kartu rencana studi
+    aliases: [rencana studi]
+  khs:
+    expansion: kartu hasil studi
+    aliases: [hasil studi]
+  sop:
+    expansion: standar operasional prosedur
+    aliases: [prosedur]
+  prodi:
+    expansion: program studi
+    aliases: [program studi, jurusan]
+  polkesyo:
+    expansion: poltekkes kemenkes yogyakarta
+    aliases: [poltekkes jogja, poltekkes yogyakarta]
+
+synonyms:
+  pendaftaran:
+    aliases: [daftar, mendaftar, daftarnya, registrasi, penerimaan, masuk kuliah]
+  jadwal:
+    aliases: [kapan, tanggal, periode, mulai, dimulai, dibuka, ditutup, batas akhir, deadline]
+  persyaratan:
+    aliases: [syarat, syaratnya, ketentuan, wajib, harus]
+  dokumen:
+    aliases: [berkas, berkasnya, file, lampiran]
+  biaya:
+    aliases: [bayar, bayarnya, tarif, harga, uang kuliah]
+  kontak:
+    aliases: [nomor, whatsapp, wa, email, telepon, hubungi, admin, narahubung]
+  formulir:
+    aliases: [form, formnya, template]
+  tertib:
+    aliases: [tata tertib, pelanggaran, melanggar, konsekuensi, sanksi, larangan]
+  berharga:
+    aliases: [barang berharga]
+
+# Intent trigger patterns, matched as substrings of the normalized question.
+# Order within a list does not matter; first intent whose pattern matches wins,
+# and intents are evaluated in the order listed here (most specific first).
+question_patterns:
+  schedule:
+    patterns: ["kapan", "jadwal", "tanggal berapa", "mulai kapan", "sampai kapan", "dibuka", "ditutup", "batas akhir", "deadline", "periode"]
+  fee:
+    # "harga" (bare) deliberately removed 2026-07-18: it matched as a substring inside
+    # "berharga" (valuable, unrelated to price), misclassifying "barang berharga" (valuables)
+    # questions as intent="fee". "biaya"/"berapa biaya"/"tarif"/"ukt" already cover fee intent
+    # without this collision risk — see intent_query_rewriter.py's IntentClassifier.classify
+    # docstring for why this was fixed here rather than in the matching algorithm.
+    patterns: ["berapa biaya", "biaya", "bayar berapa", "tarif", "ukt"]
+  document_requirement:
+    patterns: ["berkas", "dokumen apa", "lampiran", "upload apa", "unggah apa"]
+  requirement:
+    patterns: ["syarat", "persyaratan", "ketentuan", "apa saja yang dibutuhkan", "tata tertib", "pelanggaran", "melanggar", "konsekuensi", "barang berharga"]
+  contact:
+    patterns: ["kontak", "nomor telepon", "whatsapp", "hubungi", "email siapa", "narahubung", "adminnya"]
+  form_request:
+    patterns: ["formulir", "minta form", "unduh form", "download form", "formnya"]
+  procedure:
+    patterns: ["bagaimana cara", "gimana cara", "caranya", "langkah", "prosedur", "alur", "tahapan"]
+  announcement:
+    patterns: ["pengumuman", "hasil seleksi", "kelulusan", "diterima atau tidak"]
+  definition:
+    patterns: ["apa itu", "apakah itu", "apa yang dimaksud", "maksudnya apa", "itu apa", "jelaskan"]

@@ -1,0 +1,158 @@
+No,Question_ID,Kategori,Pertanyaan,Jawaban_Sistem,Jawaban_Rujukan,Answer_Status,Relevance_0_4,Faithfulness_0_4,Completeness_0_4,FPR_Priority_Review,Catatan_Evaluator
+1,Q001,SPMB,Apa saja syarat tinggi badan untuk pendaftar SPMB Jalur Mandiri Reguler SMA program studi Keperawatan dan Kebidanan?,"Berdasarkan informasi yang tersedia, persyaratan tinggi badan untuk pendaftar SPMB Jalur Mandiri Reguler SMA adalah sebagai berikut:
+
+*   **Kelas Internasional:**
+    *   Perempuan: minimal **155 cm**
+    *   Laki-laki: minimal **160 cm**
+
+(Sumber: Pedoman SPMB Mandiri Reguler SMA Poltekkes Kemenkes Yogyakarta TA 2026-2027)
+
+Informasi mengenai persyaratan tinggi badan spesifik untuk program studi Keperawatan dan Kebidanan pada jalur Mandiri Reguler SMA (non-Kelas Internasional) tidak tersedia dalam sumber resmi yang kami muat saat ini.",Prodi Keperawatan minimal 155 cm bagi laki-laki dan 150 cm bagi perempuan; Prodi Kebidanan hanya menerima peserta perempuan dengan ketentuan tinggi badan tertentu.,verified,,,,,
+2,Q002,SPMB,Bagaimana mekanisme pendaftaran SPMB Jalur Mandiri Reguler SMA dan berapa biaya pendaftarannya?,Informasi ini tidak tersedia dalam sumber resmi yang kami muat saat ini.,"Pendaftar memilih 1 program studi, mendaftar online melalui www.spmb.poltekkesjogja.ac.id, biaya pendaftaran Rp 300.000 bagi WNI dan Rp 900.000 bagi WNA.",insufficient_context,,,,Ya - cek apakah fallback ini seharusnya bisa dijawab,
+3,Q003,SPMB,Apa saja komponen dan durasi Tes Potensi Skolastik dan Literasi pada SPMB Jalur Mandiri Reguler SMA?,"Berdasarkan informasi yang tersedia, berikut adalah rincian mengenai komponen dan durasi Tes Potensi Skolastik dan Literasi pada Seleksi Penerimaan Mahasiswa Baru (SPMB) Jalur Mandiri Reguler SMA di Poltekkes Kemenkes Yogyakarta.
+
+Materi ujian CBT untuk jalur ini adalah **Tes Potensi Skolastik dan Literasi** yang berfokus pada kemampuan penalaran dan pemecahan masalah calon mahasiswa.
+
+**Durasi dan Jumlah Soal:**
+*   **Alokasi Waktu Pengerjaan:** 90 menit
+*   **Jumlah Soal:** 70 butir soal
+
+**Komponen Tes:**
+Tes Potensi Skolastik dan Literasi ini mengukur beberapa komponen sebagai berikut:
+*   **Tes Potensi Skolastik**, yang mencakup:
+    *   **Kemampuan Penalaran Umum**, terdiri dari:
+        *   Penalaran Induktif
+        *   Penalaran Deduktif
+        *   Penalaran Kuantitatif
+    *   **Pengetahuan dan Pemahaman Umum**
+    *   **Kemampuan Memahami Bacaan**
+
+**Informasi Tambahan:**
+*   **Lokasi Ujian:** Ujian CBT SPMB Mandiri dilaksanakan di Gedung G Lantai 5 Poltekkes Kemenkes Yogyakarta.
+*   **Sesi Ujian:** Terdapat tiga sesi pengerjaan soal yang tersedia setiap hari, yaitu:
+    *   **Sesi I:** 08.00 – 09.30 WIB atau 09.00 – 10.30 WITA atau 10.00 – 11.30 WIT
+    *   **Sesi II:** 10.30 – 12.00 WIB atau 11.30 – 13.00 WITA atau 12.30 -14.00 WIT
+    *   **Sesi III:** 13.30 – 15.00 WIB atau 14.30 - 16.00 WITA atau 15.30 -17.00 WIT
+
+(Sumber: Pedoman SPMB Mandiri Reguler SMA Poltekkes Kemenkes Yogyakarta TA 2026-2027)","Tes Potensi Skolastik berjumlah 70 butir soal dengan waktu 90 menit, mengukur kemampuan penalaran umum (induktif, deduktif, kuantitatif) dan pengetahuan umum.",verified,,,,,
+4,Q004,SPMB,Dokumen apa saja yang perlu disiapkan saat daftar ulang mahasiswa baru jalur mandiri reguler SMA?,"Berdasarkan informasi yang tersedia, berikut adalah berkas daftar ulang yang harus disiapkan untuk mahasiswa baru:
+
+*   **Biodata mahasiswa baru**
+*   **Scan ijazah/transkrip**
+*   **Scan surat pernyataan calon mahasiswa baru Poltekkes Kemenkes Yogyakarta**
+*   **Scan KTP**
+*   **Scan Kartu Keluarga**
+*   **Scan JKN**
+*   **Bukti pembayaran Uang Kuliah Tunggal** (Lampiran 1, 2, 3)
+*   **2 lembar pasfoto terbaru ukuran 3x4** dengan ketentuan:
+    *   Latar belakang biru untuk program D III
+    *   Latar belakang merah untuk program Sarjana Terapan
+
+(Sumber: PEDOMAN SPMB JALUR MANDIRI STR RPL 2026)","Bukti pembayaran daftar ulang UKT, seragam dan asrama, serta pas foto berwarna ukuran 4x6 cm background putih.",verified,,,,,
+5,Q005,SPMB,Apakah biaya yang sudah dikeluarkan pendaftar SPMB Mandiri Reguler SMA dapat ditarik kembali?,"Berdasarkan Pedoman SPMB Mandiri Reguler SMA Poltekkes Kemenkes Yogyakarta TA 2026-2027, semua biaya yang telah dikeluarkan tidak dapat ditarik kembali.
+
+Hal ini tercantum dalam poin ke-8 surat pernyataan yang harus dibuat oleh calon mahasiswa, yang berbunyi: ""**Semua biaya yang telah dikeluarkan tidak dapat ditarik kembali**"". Ini berarti bahwa biaya yang sudah dibayarkan dalam proses pendaftaran tidak dapat diminta kembali.
+
+(Sumber: Pedoman SPMB Mandiri Reguler SMA Poltekkes Kemenkes Yogyakarta TA 2026-2027)","Tidak, semua biaya yang telah dikeluarkan tidak dapat ditarik kembali.",verified,,,,,
+6,Q006,SPMB,Program studi apa saja yang bisa dituju melalui jalur RPL (Rekognisi Pembelajaran Lampau) Sarjana Terapan?,Informasi ini tidak tersedia dalam sumber resmi yang kami muat saat ini.,Antara lain Program Studi Teknologi Laboratorium Medis (dari latar belakang Diploma III Analis Kesehatan) dan Program Studi Gizi.,insufficient_context,,,,Ya - cek apakah fallback ini seharusnya bisa dijawab,
+7,Q007,SPMB,Bagaimana proses penentuan kelulusan Tahap III dan Tahap IV pada SPMB Jalur Mandiri RPL?,Informasi ini tidak tersedia dalam sumber resmi yang kami muat saat ini.,Tahap III: kelulusan berdasarkan hasil konversi nilai dan assessment berdasarkan kriteria penilaian; Tahap IV: kelulusan berdasarkan tahap lanjutan sesuai ketentuan pedoman.,insufficient_context,,,,Ya - cek apakah fallback ini seharusnya bisa dijawab,
+8,Q008,SPMB,Apakah biaya daftar ulang SPMB Jalur Mandiri RPL dapat diambil kembali jika calon mahasiswa mengundurkan diri?,Informasi ini tidak tersedia dalam sumber resmi yang kami muat saat ini.,"Tidak, biaya daftar ulang yang telah dibayarkan atas nama Poltekkes Kemenkes Yogyakarta tidak dapat diambil kembali dengan alasan apapun.",insufficient_context,,,,Ya - cek apakah fallback ini seharusnya bisa dijawab,
+9,Q009,SPMB,Berapa tahapan seleksi SPMB Prestasi berdasarkan Prestasi Minat dan Bakat?,Saya tidak menemukan informasi ini dalam sumber resmi yang dimuat. Silakan merujuk ke saluran informasi resmi Poltekkes Kemenkes Yogyakarta atau hubungi unit terkait.,SPMB Prestasi berdasarkan Prestasi Minat dan Bakat dilaksanakan melalui tiga tahapan seleksi.,fallback_enforced,,,,Ya - cek apakah fallback ini seharusnya bisa dijawab,
+10,Q010,SPMB,Apa syarat nilai rapor dan tinggi badan untuk SPMB Prestasi jurusan Kebidanan dan Keperawatan?,"Berdasarkan informasi resmi yang tersedia, berikut adalah persyaratan nilai rapor dan tinggi badan untuk Seleksi Penerimaan Mahasiswa Baru (SPMB) Jalur Prestasi untuk jurusan Kebidanan dan Keperawatan:
+
+*   **Nilai Rapor**: Calon pendaftar harus memiliki nilai rapor minimal 70 untuk semua mata pelajaran, yang dihitung dari semester I hingga V.
+*   **Tinggi Badan**: Persyaratan tinggi badan minimal untuk jurusan Kebidanan dan Keperawatan adalah:
+    *   Laki-laki: 155 cm
+    *   Perempuan: 150 cm
+
+Sebagai informasi tambahan, untuk jurusan selain Kebidanan dan Keperawatan, syarat tinggi badan minimal adalah 145 cm.
+
+(Sumber: PEDOMAN SELEKSI PENERIMAAN MAHASISWA BARU (SPMB) PRESTASI T.A. 2026/2027)","Nilai rapor minimal 70 untuk semua mata pelajaran (semester I sampai V), tinggi badan minimal 155 cm bagi laki-laki dan 150 cm bagi perempuan.",verified,,,,,
+11,Q011,SPMB,Berapa maksimal jumlah prestasi terbaik yang dapat dicantumkan dalam portofolio SPMB Prestasi?,Informasi ini tidak tersedia dalam sumber resmi yang kami muat saat ini.,Maksimal 8 prestasi terbaik yang dimiliki pendaftar.,insufficient_context,,,,Ya - cek apakah fallback ini seharusnya bisa dijawab,
+12,Q012,SPMB,Bagaimana sistem penilaian skor prestasi non-akademik pada SPMB Prestasi?,"Berdasarkan informasi yang tersedia, penilaian SPMB Prestasi didasarkan pada minat dan prestasi berdasarkan portofolio/sertifikat yang diunggah oleh peserta saat mendaftar.
+
+Namun, sumber resmi yang kami muat saat ini hanya merinci komponen penilaian untuk Kategori Prestasi Akademik. Rincian mengenai sistem penilaian skor untuk prestasi non-akademik (minat bakat) tidak tersedia.
+
+Berikut adalah komponen penilaian untuk **Kategori Prestasi Akademik** yang tercantum dalam pedoman:
+*   **Nilai rata-rata semesteran pada rapor semester 1 - 5**: Bobot 60
+*   **Akreditasi Sekolah**: Bobot 5
+*   **Kriteria Daerah Asal (3T/DTPK)**: Bobot 5
+*   **Prestasi Akademik lainnya (Olimpiade, karya ilmiah, literasi, debat)**: Bobot 30, dengan skala penilaian sebagai berikut:
+    *   Internasional: 100
+    *   Nasional: 80
+    *   Regional: 60
+    *   Provinsi: 40
+    *   Kabupaten/Kota: 20
+
+(Sumber: PEDOMAN SELEKSI PENERIMAAN MAHASISWA BARU (SPMB) PRESTASI T.A. 2026/2027)","Prestasi non-akademik dinilai berjenjang: skor tertinggi untuk tingkat internasional (100), diikuti nasional (80), lalu regional/provinsi (60).",verified,,,,,
+13,Q013,SPMB,Apa saja jadwal her-registrasi dan tahapan penting SPMB Mandiri Profesi tahun akademik 2026/2027?,"Berdasarkan sumber resmi yang tersedia, berikut adalah jadwal dan tahapan penting untuk Seleksi Penerimaan Mahasiswa Baru (SPMB) Jalur Mandiri Profesi Tahun Akademik 2026/2027 di Poltekkes Kemenkes Yogyakarta:
+
+**Jadwal Pelaksanaan Gelombang 1**
+*   **Pendaftaran dan Melengkapi Berkas:** 9 Februari 2026 s/d 15 Maret 2026. (Sumber: Pedoman SPMB Mandiri Profesi 2026)
+*   **Ujian CBT (Tahap I):** 31 Maret 2026, pukul 13.00 WIB. (Sumber: Pedoman SPMB Mandiri Profesi 2026)
+*   **Rapat Nominasi Hasil Seleksi Tahap II:** Rabu Pon, 1 April 2026. (Sumber: Hasi Seleksi Tahap II SPMB Profesi Gelombang I 2026)
+*   **Uji Kesehatan (Tahap III):** 4 – 8 April 2026. (Sumber: Hasi Seleksi Tahap II SPMB Profesi Gelombang I 2026)
+*   **Batas Akhir Unggah Hasil Uji Kesehatan:** 8 April 2026, Pukul 23.59 WIB. (Sumber: Hasi Seleksi Tahap II SPMB Profesi Gelombang I 2026)
+*   **Pengumuman Hasil Seleksi Tahap III:** 11 April 2026. (Sumber: Hasi Seleksi Tahap II SPMB Profesi Gelombang I 2026)
+
+**Jadwal Pelaksanaan Gelombang 2**
+*   **Ujian CBT:** Selasa Pahing, 5 Mei 2026, pukul 12.30 s.d 16.00 WIB. (Sumber: 2436 PELAKSANAAN UJIAN CBT SPMB MANDIRI PROGRAM STUDI PROFESI POLTEKKES KEMENKES YOGYAKARTA TAHUN AKADEMIK 20262027 (GEL 2))
+*   **Pengumuman Hasil CBT:** 7 Mei 2026. (Sumber: 2436 PELAKSANAAN UJIAN CBT SPMB MANDIRI PROGRAM STUDI PROFESI POLTEKKES KEMENKES YOGYAKARTA TAHUN AKADEMIK 20262027 (GEL 2))
+
+**Biaya Pendaftaran**
+*   Biaya pendaftaran untuk SPMB Jalur Mandiri Profesi adalah sebesar **Rp. 500.000,- (lima ratus ribu rupiah)**. (Sumber: Pedoman SPMB Mandiri Profesi 2026)
+
+Informasi mengenai jadwal her-registrasi (pembayaran UKT, seragam, asrama) dan jadwal verifikasi berkas tidak tersedia dalam sumber resmi yang kami muat saat ini.","Antara lain uji kesehatan 11 April/13 Mei 2026, daftar ulang 13-16 April/14-19 Mei 2026, bridging 5 Mei, PKKMB 27-31 Juli 2026, dan perkuliahan dimulai 3 Agustus 2026.",verified,,,,,
+14,Q014,SPMB,Apa syarat yang harus dipenuhi mahasiswa baru terkait fasilitas kesehatan sebelum PKKMB pada SPMB Mandiri Profesi?,"Berdasarkan sumber resmi yang tersedia, peserta yang dinyatakan Lulus Seleksi Tahap II SPMB Mandiri Profesi wajib mengikuti seleksi Tahap III, yaitu uji kesehatan. Berikut adalah rincian syarat dan prosedur yang harus dipenuhi:
+
+**1. Pelaksanaan Uji Kesehatan:**
+*   **Jadwal:** Uji kesehatan dilaksanakan pada tanggal **4 – 8 April 2026**.
+*   **Lokasi:** Uji kesehatan dapat dilakukan di Puskesmas, RS Pemerintah, RS Swasta, atau fasilitas pelayanan kesehatan lain yang berwenang.
+*   **Formulir:** Peserta wajib mencetak formulir pemeriksaan kesehatan yang tersedia di lampiran pengumuman, menempelkan foto berwarna ukuran 3 x 4 cm dengan latar belakang putih.
+
+**2. Jenis Pemeriksaan:**
+Peserta harus melakukan semua jenis pemeriksaan yang tercantum dalam formulir, yang meliputi:
+*   **Pemeriksaan Fisik:**
+    *   Tinggi badan
+    *   Berat badan
+    *   Tekanan darah dan nadi
+    *   Visus mata
+    *   Buta warna
+    *   Pemeriksaan fisik keseluruhan oleh dokter
+*   **Pemeriksaan Kesehatan Lanjutan (jika diperlukan):**
+    *   Darah lengkap
+    *   Skrining HbSAg
+    *   Narkoba 3 parameter (AMP, THC dan BZO)
+    *   PP tes untuk peserta wanita
+    *   Rontgen thorax
+    *   Psikotes
+
+**3. Pengesahan dan Pengunggahan Hasil:**
+*   Hasil uji kesehatan harus ditandatangani oleh dokter pemeriksa dan dibubuhi cap stempel dari fasilitas kesehatan tersebut.
+*   Hasil uji kesehatan harus diunggah paling lambat pada tanggal **8 April 2026 Pukul 23.59 WIB** melalui tautan **https://bit.ly/UploadUjiKesehatanPoltekkesKemenkesYogyakartaTahun2026**.
+
+**PENTING:** Peserta yang tidak mengunggah hasil uji kesehatan dan psikotes sesuai jadwal yang ditentukan akan dinyatakan **GUGUR**.
+
+(Sumber: Hasi Seleksi Tahap II SPMB Profesi Gelombang I 2026)",Bersedia pindah faskes (fasilitas kesehatan) ke Klinik Pratama Poltekkes Kemenkes Yogyakarta sebelum pelaksanaan PKKMB (27 Juli 2026).,verified,,,,,
+15,Q015,Regulation,Kapan dan di mana pelaksanaan ujian CBT SPMB Mandiri Reguler SMA tahun akademik 2026/2027?,"Berdasarkan informasi resmi yang tersedia, berikut adalah rincian mengenai pelaksanaan ujian CBT SPMB Mandiri Reguler SMA Tahun Akademik 2026/2027:
+
+**Jadwal Pelaksanaan:**
+*   **Seleksi CBT** akan dilaksanakan pada tanggal **23 Juni 2026**. (Sumber: Pedoman SPMB Mandiri Reguler SMA Poltekkes Kemenkes Yogyakarta TA 2026-2027)
+
+**Lokasi Pelaksanaan:**
+*   Ujian CBT SPMB Mandiri Poltekkes Kemenkes Yogyakarta Tahun Akademik 2026/2027 dilaksanakan di **Gedung G Lantai 5 Poltekkes Kemenkes Yogyakarta**. (Sumber: Pedoman SPMB Mandiri Reguler SMA Poltekkes Kemenkes Yogyakarta TA 2026-2027, Bagian F)
+
+**Sesi dan Materi Ujian:**
+*   **Alokasi waktu** pengerjaan soal adalah 90 menit.
+*   **Sesi ujian** yang tersedia setiap hari adalah sebagai berikut:
+    *   **Sesi I:** 08.00 – 09.30 WIB
+    *   **Sesi II:** 10.30 – 12.00 WIB
+    *   **Sesi III:** 13.30 – 15.00 WIB
+*   **Materi ujian** CBT berbentuk Tes Potensi Skolastik dan Literasi yang berfokus pada kemampuan penalaran dan pemecahan masalah. Tes ini terdiri dari 70 butir soal dengan komponen sebagai berikut:
+    *   Kemampuan Penalaran Umum (Penalaran Induktif, Penalaran Deduktif, Penalaran Kuantitatif)
+    *   Pengetahuan dan Pemahaman Umum
+    *   Kemampuan Memahami Bacaan
+
+(Sumber: Pedoman SPMB Mandiri Reguler SMA Poltekkes Kemenkes Yogyakarta TA 2026-2027, Bagian F)","Ujian CBT dilaksanakan mulai Rabu Pon, 17 Juni 2026, sesuai jadwal dan lokasi yang ditetapkan panitia SPMB.",verified,,,,,
+16,Q016,Regulation,Apa konsekuensi bagi peserta yang melanggar tata tertib saat ujian CBT SPMB?,Informasi ini tidak tersedia dalam sumber resmi yang kami muat saat ini.,Pelanggaran dicatat pada Berita Acara Pelaksanaan Ujian dan peserta otomatis tidak diperkenankan melanjutkan ujian.,insufficient_context,,,,Ya - cek apakah fallback ini seharusnya bisa dijawab,
+17,Q017,Regulation,Apakah peserta ujian CBT SPMB diperbolehkan membawa barang berharga ke ruang ujian?,Informasi ini tidak tersedia dalam sumber resmi yang kami muat saat ini.,Peserta dihimbau untuk tidak membawa barang berharga yang tidak diperlukan untuk pelaksanaan ujian; tersedia ruang penitipan barang.,insufficient_context,,,,Ya - cek apakah fallback ini seharusnya bisa dijawab,

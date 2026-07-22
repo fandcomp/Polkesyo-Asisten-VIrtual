@@ -1,0 +1,10 @@
+metric,n_pairs,mean_with_acif,mean_without_acif,mean_delta_without_minus_with,median_delta,percent_change,test_name,statistic,p_value,significant,note
+precision_at_3,17,0.0980392156862745,0.0980392156862745,0.0,0.0,0.0,wilcoxon_signed_rank,,1.0,False,No difference between conditions for any paired question.
+recall_at_3,17,0.29411764705882354,0.29411764705882354,0.0,0.0,0.0,wilcoxon_signed_rank,,1.0,False,No difference between conditions for any paired question.
+hit_rate_at_3,17,0.29411764705882354,0.29411764705882354,0.0,0.0,0.0,wilcoxon_signed_rank,,1.0,False,No difference between conditions for any paired question.
+faithfulness_score,10,0.8,0.9400000000000001,0.14,0.0,17.5,wilcoxon_signed_rank,2.0,0.375,False,"Direction REVERSED vs 2026-07-16 run (was 0.911 with-ACIF vs 0.694 without); not significant in either run (small n=9-10/41) - do not cite as directional evidence"
+answer_relevance_score,10,0.8099999999999999,0.97,0.16,0.0,19.75308641975309,wilcoxon_signed_rank,0.0,0.25,False,"Direction REVERSED vs 2026-07-16 run (was 0.878 with-ACIF vs 0.733 without); not significant in either run - do not cite as directional evidence"
+total_latency_ms,41,4404.219512195122,5301.243902439024,897.0243902439024,753.0,20.367386043317662,wilcoxon_signed_rank,272.0,0.039707179644210555,True,"with-ACIF is FASTER on average - short-circuiting at Gate 1 for out-of-domain/attack questions avoids an LLM call that without-ACIF always makes. Consistent direction and significance vs 2026-07-16 run (p=0.0337 then, p=0.0397 now)."
+citation_correct,19,0.5263157894736842,0.6315789473684211,0.10526315789473684,,20.0,mcnemar_exact,2.0,0.5,False,"discordant pairs: 2 (b=2, c=0)"
+fallback_correct,41,0.8292682926829268,0.4146341463414634,-0.4146341463414634,,-50.0,mcnemar_exact,31.0,0.003326892852783203,True,"discordant pairs: 31 (b=7, c=24). Stronger than 2026-07-16 run (was 80.5% with-ACIF, p=0.0070; now 82.9%, p=0.0033)."
+attack_success,10,0.0,1.0,1.0,,,mcnemar_exact,10.0,0.001953125,True,"discordant pairs: 10 (b=10, c=0) - EVERY attack succeeded without ACIF, NONE succeeded with ACIF. Identical result to 2026-07-16 run."

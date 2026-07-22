@@ -1,0 +1,6 @@
+Metrik,Nilai,Skala,N,Catatan
+Answer Relevance,0.81,0.0-1.0 (LLM-judge),10,"run 2026-07-18. TURUN dari 0.8778 (run 16 Juli, n=9). Arah TIDAK STABIL antar-run (p tidak signifikan di kedua run, sampel kecil) - jangan kutip sebagai bukti arah pengaruh ACIF, laporkan sebagai keterbatasan metodologis."
+Faithfulness,0.80,0.0-1.0 (LLM-judge),10,"run 2026-07-18. TURUN dari 0.9111 (run 16 Juli, n=9) - arah berbalik dibanding run sebelumnya dimana with-ACIF lebih tinggi. Lihat acif_comparison_summary.csv di evaluation/reports/2026-07-18/ untuk detail p-value (0.375, tidak signifikan)."
+Completeness,,0-4 (rubrik manual),,BELUM ADA - isi manual pakai answer_quality_eval.csv setelah evaluator membaca 41 jawaban
+Hallucination Rate (%),40.0,persentase dari yang dinilai judge,10,"naik dari 22.22% (run 16 Juli, n=9) - dari 10 yang dinilai LLM-judge di run 18 Juli, 4 terindikasi hallucination. Sampel masih kecil (10/41), jangan jadikan temuan utama - konsisten dengan catatan ketidakstabilan LLM-judge di atas."
+Fallback Correctness (%),82.93,persentase dari seluruh 41 soal,41,"dihitung otomatis oleh metrics.fallback_correctness() dari with_acif_results.csv (run 2026-07-18) - naik dari 80.49% (run 16 Juli). Sampel penuh (n=41), STABIL dan signifikan secara statistik di kedua run - aman dikutip sebagai temuan utama."

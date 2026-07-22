@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+}
+
+#__next {
+  height: 100%;
+}
+
+/*
+ * Design tokens. Colors that need Tailwind opacity modifiers (e.g. bg-primary/40)
+ * are stored as "R G B" triples per Tailwind's documented rgb(var(...) / <alpha-value>)
+ * pattern. Tokens that are already full colors (border, shadow, danger-bg) are kept
+ * as complete css values since they're never used with an opacity modifier.
+ */
+:root {
+  --color-background: 247 248 242;
+  --color-surface: 255 255 255;
+  --color-surface-elevated: 238 247 244;
+  --color-primary: 4 125 130;
+  --color-primary-hover: 3 95 99;
+  --color-accent: 174 176 0;
+  --color-gold: 201 169 92;
+  --color-text-primary: 16 32 29;
+  --color-text-secondary: 82 100 95;
+  --color-success: 4 125 130;
+  --color-warning: 201 169 92;
+  --color-danger-text: 165 67 60;
+  --color-danger-border: 201 128 121;
+
+  --color-border: rgba(4, 125, 130, 0.18);
+  --color-shadow: rgba(4, 125, 130, 0.14);
+  --color-danger-bg: rgba(165, 67, 60, 0.08);
+}
+
+html.dark {
+  --color-background: 7 17 15;
+  --color-surface: 11 31 29;
+  --color-surface-elevated: 16 44 40;
+  --color-primary: 6 156 161;
+  --color-primary-hover: 11 182 188;
+  --color-accent: 197 197 13;
+  --color-gold: 229 210 153;
+  --color-text-primary: 247 245 232;
+  --color-text-secondary: 168 184 178;
+  --color-success: 6 156 161;
+  --color-warning: 229 210 153;
+  --color-danger-text: 226 147 140;
+  --color-danger-border: 179 86 79;
+
+  --color-border: rgba(229, 210, 153, 0.18);
+  --color-shadow: rgba(0, 0, 0, 0.45);
+  --color-danger-bg: rgba(179, 86, 79, 0.14);
+}
+
+html,
+body {
+  background-color: rgb(var(--color-background));
+  color: rgb(var(--color-text-primary));
+  transition: background-color 300ms ease, color 300ms ease;
+}
+
+/* Glassmorphism chat input field — RGBA/focus/placeholder values need real pseudo-classes,
+   which React inline styles can't express, so this lives here instead of Tailwind arbitrary
+   values. */
+.input-glass {
+  background-color: rgba(255, 255, 255, 0.42);
+  border: 1px solid rgba(0, 174, 179, 0.22);
+  color: #222222;
+  transition: border-color 300ms ease, box-shadow 300ms ease, background-color 300ms ease;
+}
+
+.input-glass::placeholder {
+  color: rgba(34, 34, 34, 0.55);
+}
+
+.input-glass:focus {
+  border-color: rgba(0, 174, 179, 0.55);
+  box-shadow: 0 0 0 4px rgba(0, 174, 179, 0.12);
+}

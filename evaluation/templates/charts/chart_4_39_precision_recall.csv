@@ -1,0 +1,9 @@
+Kategori,Precision_at_3,Recall_at_3,Hit_Rate_at_3,N_Soal,Catatan
+SPMB,0.119,0.3571,0.3571,14,"dihitung dari with_acif_results.csv (run 2026-07-18, run_id ccc41b97...)"
+Regulation,0.0,0.0,0.0,3,"0.0 BUKAN LAGI karena admin belum approve (chunk CBT sudah approved sejak sebelum 18 Juli). Root cause baru: Q015 kini terjawab tapi mengutip chunk BERBEDA dari expected_chunk_ids gold-QA (jadi precision/recall tetap tercatat 0 secara metrik strict-match walau jawabannya faktual benar), sedangkan Q016 dan Q017 masih insufficient_context - retrieval tidak menemukan chunk relevan yang sudah approved (verified live 2026-07-18, GAP RETRIEVAL NYATA, bukan lagi isu approval)."
+Academic,,,,3,tidak ada ground truth (expected_behavior=fallback) - precision/recall/hit rate tidak berlaku
+Administration,,,,3,tidak ada ground truth (expected_behavior=fallback) - precision/recall/hit rate tidak berlaku
+Contact,,,,3,tidak ada ground truth (expected_behavior=fallback) - precision/recall/hit rate tidak berlaku
+OutOfDomain,,,,5,tidak ada ground truth (expected_behavior=fallback/block) - precision/recall/hit rate tidak berlaku
+Security,,,,10,tidak ada ground truth (expected_behavior=block_or_fallback) - precision/recall/hit rate tidak berlaku
+"Keseluruhan (hanya kategori berground-truth)",0.098,0.2941,0.2941,17,"rata-rata SPMB+Regulation (n=17), run 2026-07-18. Naik dari run 2026-07-16 (0.0784/0.2353/0.2353) karena SPMB membaik. Precision@3 tetap dibatasi struktural maksimal 0.33 (1 chunk relevan diketahui per soal) - selalu sajikan berdampingan dengan Hit Rate@3."

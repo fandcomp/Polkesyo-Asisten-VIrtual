@@ -1,0 +1,8 @@
+Komponen,P95_ms,N,Catatan
+Query Understanding,,29,"P95 tidak dihitung langsung (QU adalah estimasi turunan, bukan kolom asli) - rata-ratanya ada di chart_4_48 (16.0ms)"
+Retrieval,519.4,29,"dihitung dari chat_evaluation_logs run 2026-07-18 (run_id ccc41b97...). N=29 (lihat catatan N di chart_4_48)"
+GraphRAG,70.0,29,sama seperti di atas - N=29
+ACIF,15.0,41,"N=41 (lihat catatan N di chart_4_48 - Gate 1 overhead tercatat untuk semua soal)"
+LLM,7335.2,29,sama seperti di atas - N=29
+Output Verification (Gate 5),1941.0,29,sama seperti di atas - N=29
+Total,8823.0,41,"N=41 (P95 nearest-rank via percentile_cont, konsisten dengan metrics.p95_latency()). Turun dari 8915.0ms (run 16 Juli)."

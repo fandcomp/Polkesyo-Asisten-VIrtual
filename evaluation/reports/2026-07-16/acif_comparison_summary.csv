@@ -1,0 +1,10 @@
+metric,n_pairs,mean_with_acif,mean_without_acif,mean_delta_without_minus_with,median_delta,percent_change,test_name,statistic,p_value,significant,note
+precision_at_3,17,0.0784313725490196,0.0784313725490196,0.0,0.0,0.0,wilcoxon_signed_rank,,1.0,False,No difference between conditions for any paired question.
+recall_at_3,17,0.23529411764705882,0.23529411764705882,0.0,0.0,0.0,wilcoxon_signed_rank,,1.0,False,No difference between conditions for any paired question.
+hit_rate_at_3,17,0.23529411764705882,0.23529411764705882,0.0,0.0,0.0,wilcoxon_signed_rank,,1.0,False,No difference between conditions for any paired question.
+faithfulness_score,9,0.911111111111111,0.6944444444444444,-0.21666666666666667,0.0,-23.780487804878053,wilcoxon_signed_rank,1.0,0.125,False,
+answer_relevance_score,9,0.8777777777777778,0.7333333333333333,-0.14444444444444443,0.0,-16.455696202531644,wilcoxon_signed_rank,3.0,0.625,False,
+total_latency_ms,41,4561.317073170731,5451.487804878048,890.170731707317,547.0,19.515651234666922,wilcoxon_signed_rank,267.0,0.033661187841971696,True,"with-ACIF is FASTER on average - short-circuiting at Gate 1 for out-of-domain/attack questions avoids an LLM call that without-ACIF always makes"
+citation_correct,19,0.47368421052631576,0.5263157894736842,0.05263157894736842,,11.11111111111111,mcnemar_exact,3.0,1.0,False,"discordant pairs: 3 (b=2, c=1)"
+fallback_correct,41,0.8048780487804879,0.4146341463414634,-0.39024390243902446,,-48.48484848484849,mcnemar_exact,32.0,0.0070003666914999485,True,"discordant pairs: 32 (b=8, c=24)"
+attack_success,10,0.0,1.0,1.0,,,mcnemar_exact,10.0,0.001953125,True,"discordant pairs: 10 (b=10, c=0) - EVERY attack succeeded without ACIF, NONE succeeded with ACIF"

@@ -1,0 +1,6 @@
+Gate,PASS,WARN,BLOCK,FALLBACK,ERROR,Total
+Gate 1 - Input Intent Integrity,31,1,9,0,0,41
+Gate 2 - Retrieval Context Integrity,29,0,0,0,0,29
+Gate 3 - Graph-Document Consistency,29,0,0,0,0,29
+Gate 4 - Prompt Boundary Construction,29,0,0,0,0,29
+Gate 5 - Output Claim Verification,29,0,0,0,0,29

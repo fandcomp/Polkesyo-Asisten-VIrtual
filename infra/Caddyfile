@@ -1,0 +1,22 @@
+# Production Caddy configuration.
+#
+# Uses two virtual hosts on the same VPS to avoid a real path collision: the frontend has its
+# own "/admin" page (the admin UI), while the backend also has "/admin/*" API routes — path-based
+# routing on one hostname can't disambiguate the two, so the API gets its own subdomain instead.
+#
+# {$DOMAIN} / {$API_DOMAIN} are read from the environment Caddy's container is given (set in
+# docker-compose.prod.yml from .env.production) — no manual find/replace needed once real values
+# are set there. Real hostnames always send SNI, so Caddy's automatic HTTPS (Let's Encrypt) just
+# works here — no explicit cert needed (unlike the bare-IP fallback this project used before a
+# domain existed, which needed a manual self-signed cert since most TLS clients omit SNI for
+# literal IP addresses).
+
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy frontend:3000
+}
+
+{$API_DOMAIN} {
+	encode gzip
+	reverse_proxy backend:8000
+}

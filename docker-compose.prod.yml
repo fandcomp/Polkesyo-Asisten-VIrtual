@@ -1,0 +1,287 @@
+# Production Docker Compose — self-hosted on a single VPS (CLAUDE.md §24.2 initial deployment).
+#
+# Expects a ".env" file in this same directory (copy .env.production here and rename) providing
+# at minimum: POSTGRES_DB/USER/PASSWORD, NEO4J_PASSWORD, OPENROUTER_API_KEY, ADMIN_USERNAME,
+# ADMIN_PASSWORD_HASH, ALLOWED_ORIGINS, DOMAIN, API_DOMAIN.
+#
+# Run with: docker compose -f docker-compose.prod.yml up -d --build
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: campus-va-caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN}
+      - API_DOMAIN=${API_DOMAIN}
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - campus-va-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: campus-va-backend
+    restart: always
+    # Drop --reload (dev-only, wastes CPU watching for file changes) and run multiple workers.
+    # 4 workers: a single chat request can hold a worker for tens of seconds (LLM call +
+    # fallback model + Gate 5 verification) — with only 2, a couple of concurrent long
+    # requests starved everyone else, failing the healthcheck and triggering autoheal
+    # restarts that severed in-flight connections ("Failed to fetch" reports).
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+    # Defense-in-depth for connection/fd leaks: the default 1024 nofile limit was
+    # exhausted by leaked Chroma client connections (2026-07-10 incident), turning every
+    # request on a saturated worker into an opaque failure.
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    env_file:
+      - .env
+    environment:
+      - APP_ENV=production
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - REDIS_URL=redis://redis:6379/0
+      - CHROMA_HOST=chroma
+      - CHROMA_PORT=8000
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      chroma:
+        condition: service_started
+      neo4j:
+        condition: service_started
+    volumes:
+      - backend_data:/app/data
+    networks:
+      - campus-va-network
+    labels:
+      # Picked up by the `autoheal` service below — `restart: always` only fires on
+      # process crash, not on a failed HEALTHCHECK, so a deadlocked-but-still-running
+      # worker (e.g. a wedged dependency call that freezes the event loop) can sit
+      # "unhealthy" indefinitely with nothing to notice or restart it.
+      - "autoheal=true"
+
+  celery-worker:
+    # Executes the 24h official-document sync task (app/workers/tasks.py), scheduled by
+    # celery-beat below. Runs separately from `backend` (which uses --workers 4) and separately
+    # from celery-beat so the recurring sync fires exactly once per interval regardless of
+    # worker replica count.
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: campus-va-celery-worker
+    restart: always
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=2
+    # The Dockerfile's HEALTHCHECK probes http://localhost:8000/health (baked in for the
+    # `backend` service) — this container runs a Celery worker instead of uvicorn, so nothing
+    # ever listens on 8000 and that inherited check would misreport a working process as
+    # permanently "unhealthy". Overridden with Celery's own liveness probe, caught within
+    # minutes and autoheal restarts it — previously nothing detected a hung worker at all (see
+    # docs/private/document-sync-notes.md).
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.celery_app inspect ping -d celery@$$HOSTNAME"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "autoheal=true"
+    env_file:
+      - .env
+    environment:
+      - APP_ENV=production
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - REDIS_URL=redis://redis:6379/0
+      - CHROMA_HOST=chroma
+      - CHROMA_PORT=8000
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - backend_data:/app/data
+    networks:
+      - campus-va-network
+
+  celery-beat:
+    # Schedules the periodic sync task onto celery-worker via Redis — must stay a single
+    # instance (never scaled), since duplicate beat processes would double-fire the schedule.
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: campus-va-celery-beat
+    restart: always
+    command: celery -A app.celery_app beat --loglevel=info --schedule=/app/data/celerybeat-schedule
+    # inspect ping (used for celery-worker above) tests the task-consuming worker, not the beat
+    # scheduler process itself. Beat rewrites its schedule file's mtime on every tick (well
+    # under a minute by default), so a stale mtime reliably means beat is hung.
+    healthcheck:
+      test: ["CMD-SHELL", "find /app/data/celerybeat-schedule -mmin -5 2>/dev/null | grep -q ."]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "autoheal=true"
+    env_file:
+      - .env
+    environment:
+      - APP_ENV=production
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - REDIS_URL=redis://redis:6379/0
+      - CHROMA_HOST=chroma
+      - CHROMA_PORT=8000
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - backend_data:/app/data
+    networks:
+      - campus-va-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: https://${API_DOMAIN}
+    container_name: campus-va-frontend
+    restart: always
+    depends_on:
+      - backend
+    networks:
+      - campus-va-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: campus-va-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - campus-va-network
+    # No published host port — only reachable from other containers on campus-va-network.
+
+  redis:
+    image: redis:7-alpine
+    container_name: campus-va-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - redis_data:/data
+    networks:
+      - campus-va-network
+
+  chroma:
+    # Pinned 2026-07-22 to the exact digest already running in production (captured via
+    # `docker inspect campus-va-chroma` on the VPS) — zero behavior change, since no
+    # human-readable version tag was recorded anywhere for this deployment. Digest pin is
+    # strictly safer than a tag pin (immutable, can't be silently repointed upstream).
+    # To upgrade deliberately: `docker pull chromadb/chroma:<new-tag>`, test against a
+    # copy of the data volume, then replace this digest.
+    image: chromadb/chroma@sha256:1e0b73a187a28757c572acba508c46f48c9e8b0acaf5c20e6d95cdedce1acdf6
+    container_name: campus-va-chroma
+    restart: unless-stopped
+    # This image persists to /data by default (confirmed via its own startup banner),
+    # not /chroma/chroma — the old mount point silently wrote all vector index data to
+    # the container's ephemeral layer, so every container recreation wiped the entire
+    # knowledge base's embeddings without any error or warning.
+    volumes:
+      - chroma_data:/data
+    # Chroma has wedged silently 3 times now (2026-07-06, -07, -08): the process stays up
+    # and its port keeps accepting TCP, but every request hangs forever — so `restart:
+    # unless-stopped` never fires and the container reads "Up" while /health reports
+    # chroma:error. A real HTTP heartbeat probe (the image has bash but no curl/wget)
+    # marks it unhealthy so autoheal restarts it; the index survives via the /data volume.
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c 'exec 3<>/dev/tcp/127.0.0.1/8000; printf \"GET /api/v2/heartbeat HTTP/1.0\\r\\n\\r\\n\" >&3; grep -q \"200\" <&3'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "autoheal=true"
+    networks:
+      - campus-va-network
+
+  neo4j:
+    image: neo4j:5-community
+    container_name: campus-va-neo4j
+    restart: unless-stopped
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
+      - NEO4J_PLUGINS=["apoc"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474/browser/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    volumes:
+      - neo4j_data:/var/lib/neo4j/data
+    networks:
+      - campus-va-network
+
+  autoheal:
+    # Restarts any container labeled autoheal=true as soon as Docker reports it
+    # "unhealthy" — closes the gap where `restart: always` never fires because the
+    # process is deadlocked but hasn't crashed (see backend's label above).
+    image: willfarrell/autoheal:latest
+    container_name: campus-va-autoheal
+    restart: always
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=autoheal
+      - AUTOHEAL_INTERVAL=10
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  postgres_data:
+  redis_data:
+  chroma_data:
+  neo4j_data:
+  backend_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  campus-va-network:
+    driver: bridge

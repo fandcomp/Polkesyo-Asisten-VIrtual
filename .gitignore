@@ -1,0 +1,44 @@
+# Environment secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Private / confidential docs (ACIF IP, participant data) — see CLAUDE.md §3
+docs/private/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+venv/
+.venv/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Data directories — keep folder structure, ignore contents
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/processed_review/
+data/private/*
+!data/private/.gitkeep
+
+# Logs
+*.log
