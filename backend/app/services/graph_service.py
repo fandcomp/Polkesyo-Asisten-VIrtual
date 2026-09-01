@@ -131,7 +131,10 @@ class GraphService:
         stmt = (
             select(DocumentChunk.id, ChunkSummary.approved_summary)
             .join(ChunkSummary, ChunkSummary.chunk_id == DocumentChunk.id)
-            .where(DocumentChunk.document_id == document_id)
+            .where(
+                DocumentChunk.document_id == document_id,
+                DocumentChunk.status == "approved",
+            )
         )
         rows_result = await db.execute(stmt)
         rows = [(chunk_id, summary) for chunk_id, summary in rows_result.all() if summary]
