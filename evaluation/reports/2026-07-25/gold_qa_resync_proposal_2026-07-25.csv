@@ -1,0 +1,18 @@
+question_id,category,old_expected_chunk_ids,proposed_chunk_id,match_score,matched_snippet
+Q001,SPMB,39251195-b3e8-4e03-bfaf-ff881fd1fa93,,0.0,NO APPROVED CHUNKS FOUND FOR expected_document_ids
+Q002,SPMB,440e4146-987e-43f7-a60b-1a0ab3bf16da,,0.0,NO APPROVED CHUNKS FOUND FOR expected_document_ids
+Q003,SPMB,440e4146-987e-43f7-a60b-1a0ab3bf16da,,0.0,NO APPROVED CHUNKS FOUND FOR expected_document_ids
+Q004,SPMB,0f915597-0e2a-4462-9ab6-d2e55eb2340a,,0.0,NO APPROVED CHUNKS FOUND FOR expected_document_ids
+Q005,SPMB,0f915597-0e2a-4462-9ab6-d2e55eb2340a,,0.0,NO APPROVED CHUNKS FOUND FOR expected_document_ids
+Q006,SPMB,4d813e91-f39e-45d3-b7e2-1c2dc1db4f18,,0.0,NO APPROVED CHUNKS FOUND FOR expected_document_ids
+Q007,SPMB,29f0e407-a9e5-4698-bba4-78267e6c2ecb,,0.0,NO APPROVED CHUNKS FOUND FOR expected_document_ids
+Q008,SPMB,e35fba05-0338-4bd5-adab-02304a442e9d,,0.0,NO APPROVED CHUNKS FOUND FOR expected_document_ids
+Q009,SPMB,649ae7af-53ef-45a1-bb44-c4e79d5efac5,,0.0,NO APPROVED CHUNKS FOUND FOR expected_document_ids
+Q010,SPMB,3f2e57c4-4810-4bbb-b5e7-1de3a7ef91b0,,0.0,NO APPROVED CHUNKS FOUND FOR expected_document_ids
+Q011,SPMB,6e36d60c-deee-417c-b0bd-b1fb925985b1,,0.0,NO APPROVED CHUNKS FOUND FOR expected_document_ids
+Q012,SPMB,376df31e-705d-447d-bf6a-567bb46ccf33,,0.0,NO APPROVED CHUNKS FOUND FOR expected_document_ids
+Q013,SPMB,d0785f81-7a95-4cdd-ab9d-3125836bc380,,0.0,NO APPROVED CHUNKS FOUND FOR expected_document_ids
+Q014,SPMB,e2547040-15bf-4849-86b8-21c3b8c60910,,0.0,NO APPROVED CHUNKS FOUND FOR expected_document_ids
+Q015,Regulation,7a9a6b34-4710-4329-9f11-203a9378d377,,0.0,NO APPROVED CHUNKS FOUND FOR expected_document_ids
+Q016,Regulation,a9f4adf5-5002-4beb-b05d-007d07a308e0,,0.0,NO APPROVED CHUNKS FOUND FOR expected_document_ids
+Q017,Regulation,a9f4adf5-5002-4beb-b05d-007d07a308e0,,0.0,NO APPROVED CHUNKS FOUND FOR expected_document_ids

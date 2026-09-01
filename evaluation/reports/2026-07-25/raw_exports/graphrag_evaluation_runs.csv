@@ -1,0 +1,5 @@
+id,run_name,config_name,run_type,total_questions,completed_questions,status,started_at,finished_at,created_by,notes,created_at
+4d1853b8-d6bb-4f64-bf43-53a75f54df28,graphrag_probe_41q_graph_on,gates_all,full,41,41,completed,2026-07-25 09:33:22.152947+00,2026-07-25 09:34:28.65657+00,,,2026-07-25 09:33:22.198492+00
+cda89aed-9666-4f0a-89b7-3bf03cae6c6d,graphrag_probe_41q_graph_off,gates_all,full,41,41,completed,2026-07-25 09:44:00.765073+00,2026-07-25 09:45:07.759079+00,,,2026-07-25 09:44:00.813702+00
+be854b83-65b3-4c35-bdeb-f7b5721c7a72,graphrag_probe_mh_graph_on,gates_all,full,6,6,completed,2026-07-25 09:45:20.993841+00,2026-07-25 09:45:38.82844+00,,,2026-07-25 09:45:21.034011+00
+e616fbfe-524e-4bee-be10-dd6297e53840,graphrag_probe_mh_graph_off,gates_all,full,6,6,completed,2026-07-25 09:45:51.783718+00,2026-07-25 09:46:11.291322+00,,,2026-07-25 09:45:51.824043+00

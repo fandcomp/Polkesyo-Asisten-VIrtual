@@ -1,0 +1,35 @@
+Collected 2026-07-31 via cypher-shell on production VPS (root@<PRODUCTION_VPS_IP>), read-only queries.
+
+node_count
+1699
+
+rel_count
+3895
+
+labels breakdown
+lbl, cnt
+"Jadwal", 1049
+"Biaya", 576
+"Document", 45
+"ProgramStudi", 14
+"Persyaratan", 6
+"JalurPendaftaran", 5
+"TahapSeleksi", 4
+
+relationship types breakdown
+rel_type, cnt
+"MENTIONS", 2189
+"MEMILIKI_JADWAL", 977
+"MEMILIKI_BIAYA", 661
+"TERSEDIA_PADA", 40
+"MENGHARUSKAN", 28
+
+Notes:
+- Total node count (1699) includes the "Document" provenance label (45 nodes) — pure domain-entity
+  node count (excluding Document) = 1699 - 45 = 1654.
+- Relation types defined in CLAUDE.md §14: MEMILIKI_TAHAP, MENGHARUSKAN, MEMERLUKAN_DOKUMEN,
+  MEMILIKI_JADWAL, MEMILIKI_BIAYA, TERSEDIA_PADA, MELAYANI, MEREFERENSI, BERLAKU_PADA, DIKELOLA_OLEH
+  (10 types). Actually present in the graph: MENTIONS (provenance edge, not in the §14 list),
+  MEMILIKI_JADWAL, MEMILIKI_BIAYA, TERSEDIA_PADA, MENGHARUSKAN — i.e. 4 of the 10 defined §14 types
+  are present (MEMILIKI_TAHAP, MEMERLUKAN_DOKUMEN, MELAYANI, MEREFERENSI, BERLAKU_PADA, DIKELOLA_OLEH
+  are NOT present in the live graph). Relation coverage = 4/10 = 40%.

@@ -1,0 +1,243 @@
+Collected 2026-07-31 via psql on production VPS (assistant_db), read-only queries.
+Source SQL: evaluation/scripts/vps_eval_data_queries_2026-07-31.sql (companion file, same folder tree)
+
+=== 1. document counts by status ===
+   status   | count
+------------+-------
+ discovered |    45
+(45 total documents; NOTE: documents.status is never transitioned away from "discovered" in this
+codebase's live data -- document-level status is not a reliable "active" signal. The real
+active/approved gate lives at document_chunks.status/active and document_chunks.admin_status
+for visual chunks. Treat this as a genuine, minor workflow-tracking gap, not a corpus-emptiness
+problem -- 428 approved+active text chunks and 975 active visual chunks exist, see below.)
+
+=== 2. document counts by type (active only, i.e. documents.status='active') ===
+(0 rows -- see note above, this filter is meaningless given the status-field gap)
+
+=== 3. chunk counts by status/type ===
+ chunk_type  |   status   | active | count
+-------------+------------+--------+-------
+ table_image | created    |      1 |   709
+ text        | approved   |      1 |   428
+ image       | created    |      1 |   266
+ text        | superseded |      0 |   252
+ text        | superseded |      1 |    68   <-- data-quality flag, see note
+ text        | created    |      0 |    62
+ table_image | created    |      0 |    59
+ image       | created    |      0 |    50
+(1894 total chunks)
+
+NOTE on "text | superseded | active=1 | 68": 68 chunks marked superseded (i.e. replaced by a
+newer document version) still carry active=1. This is the same class of stale-active-flag issue
+flagged in project memory for the 2026-07-27 reingest incident (v2/v4 duplicate content briefly
+served live). Not independently re-audited/fixed in this session (out of scope, read-only data
+collection) -- flagged here so the thesis doesn't silently treat "text active=1" as always meaning
+"currently correct/served" without this caveat.
+
+Visual chunks use `admin_status`, not `status`/`active`, as their real gate (see chunk_type=image/
+table_image breakdown below).
+
+=== 3b. visual chunk admin_status breakdown ===
+ chunk_type  |  admin_status  | count
+-------------+----------------+-------
+ image       | active         |   266
+ image       | pending_review |    50
+ table_image | active         |   709
+ table_image | pending_review |    59
+(975 active visual chunks total: 266 image + 709 table_image)
+
+=== 4. chunk token_count stats (approved+active text chunks) ===
+ count | avg_tokens | sum_tokens | avg_chars | sum_chars
+-------+------------+------------+-----------+----------
+   428 |    394.77  |    168,963 |  2,907.58 | 1,244,445
+
+=== 5. raw document corpus size (on-disk, backend container /app/data/raw) ===
+57 MB total across 45 files (du -sh)
+
+=== 6. Postgres table sizes (top, pg_total_relation_size) ===
+ retrieval_evaluation_logs  108 MB
+ acif_trace_logs            7592 kB
+ graph_consistency_logs     6056 kB
+ chat_evaluation_logs       5584 kB
+ document_chunks            4416 kB
+ chat_history                3344 kB
+ citation_evaluation_logs   2360 kB
+ chunk_summaries             2272 kB
+ openrouter_usage_logs      1600 kB
+ evaluation_results          1040 kB
+ consent_log                  792 kB
+ sessions                     568 kB
+ chunk_reviews                264 kB
+ chunk_entities                248 kB
+ security_events               208 kB
+
+=== 7. chunk_entities status counts (admin review layer for KG entities) ===
+ entity_type      | status   | count
+ Biaya            | detected |   527
+ Biaya            | edited   |     1
+ Jadwal           | detected |   117
+ JalurPendaftaran | detected |    14
+ Persyaratan      | detected |    64
+ ProgramStudi     | detected |    49
+ TahapSeleksi     | detected |     2
+(774 total rows; distinct non-rejected entity text = 273; distinct CONFIRMED/EDITED = 1)
+
+IMPORTANT FINDING: the admin review layer for chunk-level KG entities (built 2026-07-21 per
+project history) has essentially never been used in production -- 773 of 774 extracted entity
+candidates are still in "detected" (never reviewed) status; only 1 has ever been "edited" and
+zero have been explicitly "confirmed". This is a real, reportable gap, not a measurement error.
+
+=== 8. Neo4j vs chunk_entities relationship ===
+Neo4j has 1654 domain-entity nodes (excluding the Document provenance label; see
+neo4j_counts.txt) populated via the SEPARATE, older `GraphService.extract_entities` regex-based
+pipeline that writes directly to Neo4j at chunk-index time -- it does NOT read from or depend on
+the `chunk_entities` admin-review table at all. These are two independent entity-extraction
+mechanisms, not a pipeline->approval funnel. See report README for how "entity coverage" is
+therefore reported as two separate numbers rather than one ratio.
+
+=== 9. ACIF gate status distribution (acif_trace_logs, ALL production traffic, 2026-07-12 to
+      2026-07-31, 18979 total gate-check rows) ===
+ gate_number | gate_name                                      | gate_status | count
+ 1           | Gate 1 - Input Intent Integrity Check          | block       |   746
+ 1           | Gate 1 - Input Intent Integrity Check          | bypassed    |   861
+ 1           | Gate 1 - Input Intent Integrity Check          | pass        |  2946
+ 1           | Gate 1 - Input Intent Integrity Check          | warn        |    82
+ 2           | Gate 2 - Retrieval Context Integrity Scoring   | bypassed    |   963
+ 2           | Gate 2 - Retrieval Context Integrity Scoring   | pass        |  2672
+ 3           | Gate 3 - Graph-Document Consistency Check      | bypassed    |  1137
+ 3           | Gate 3 - Graph-Document Consistency Check      | pass        |  2478
+ 3           | Gate 3 - Graph-Document Consistency Check      | warn        |    20
+ 4           | Gate 4 - Prompt Boundary Construction          | bypassed    |  1311
+ 4           | Gate 4 - Prompt Boundary Construction          | pass        |  2324
+ 5           | Gate 5 - Output Claim Verification             | bypassed    |  1311
+ 5           | Gate 5 - Output Claim Verification             | fallback    |   116
+ 5           | Gate 5 - Output Claim Verification             | pass        |  2012
+
+("bypassed" = gate short-circuited because an earlier gate already rejected/fallback'd the
+request, per Gate 1's short-circuit design noted in project history -- not a gate failing to run.)
+
+=== 10. graph-document consistency (graph_consistency_logs, 29074 rows, 2026-07-12 to
+        2026-07-31) ===
+ consistency_status | count
+ weakly_supported    | 14554  (50.06%)
+ supported           | 14520  (49.94%)
+(unsupported/conflict/skipped: 0 rows ever recorded in production)
+
+=== 11. evidence coverage (retrieval_evaluation_logs joined to graph_consistency_logs by
+        trace_id) ===
+ selected_for_context=true rows: 25729
+ of those, with a matching graph_consistency_logs row status IN (supported, weakly_supported): 15799
+ evidence coverage = 15799 / 25729 = 61.4%
+
+=== 12. OpenRouter token usage (openrouter_usage_logs, REAL historical data, 2026-07-05 to
+        2026-07-27 08:28 UTC -- account was dry from then until user topped up funds later on
+        2026-07-31; confirmed working again same day via a real /chat call, status=verified) ===
+ model                    | calls | total_prompt_tokens | total_completion_tokens | avg_prompt | avg_completion
+ google/gemini-2.5-flash  |  4788 |           14,271,594 |                633,386  |   2,980.7  |   132.3
+ google/gemini-2.5-pro    |  4628 |           15,377,632 |              2,139,577  |   3,322.7  |   462.3
+ TOTAL                    |  9416 |           29,649,226 |              2,772,963  |            |
+
+=== 13. chat_evaluation_logs answer_status distribution (ALL production /chat history,
+        4638 rows) ===
+ answered                  1311  (28.3%)
+ verified                  1108  (23.9%)
+ rejected_by_input_filter   746  (16.1%)
+ out_of_domain              664  (14.3%)
+ insufficient_context       488  (10.5%)
+ service_unavailable         196  (4.2%)   <- includes the 2026-07-27+ 402 outage
+ fallback_enforced          116  (2.5%)
+ needs_clarification          6  (0.1%)
+ rate_limited                 2  (0.04%)
+ no_consent                   1  (0.02%)
+
+=== 14. SUS raw data confirmation ===
+21 responses, avg 69.05 (Good), min 40, max 100 -- matches the 2026-07-16 collection exactly,
+still the current/only dataset (one-time human-subject study, cited not re-run).
+
+=== 15. ASQ confirmation ===
+43 responses, avg 5.76/7.
+
+=== 16. Answer Correctness + ASR -- CLEAN reference run (run_name = refresh_20260727_gates_all,
+        confirmed zero-402-contamination per project memory, n=41, full production config) ===
+ avg_faithfulness_score       = 0.906
+ avg_answer_relevance_score   = 0.9375
+ citation_correct_rate        = 39.02%
+ hallucination_rate           = 9.76%
+ Attack Success Rate by category (10 Security questions): 0.0% (matches all other categories,
+   ASR=0% across the board on this with-ACIF config)
+
+(evaluation_results has 2182 total rows across ALL runs ever including 402-contaminated ones --
+the numbers above are filtered to the one confirmed-clean run per memory guidance, NOT a blind
+aggregate of everything.)
+
+=== 17. Indexing time (read-only measurement; UPDATED 2026-07-31 same day, OpenRouter account
+        topped up -- summarization stage now measured with real production calls) ===
+Pedoman_SPMB_Mandiri_Reguler_SMA... (45,393 chars extracted, 16 chunks @ ~500 tokens):
+  extraction  : 1,272 ms
+  chunking    :     0.4 ms
+  entity extraction (regex) : 76 ms (140 entities found)
+  embedding (real production SentenceTransformerEmbeddingFunction,
+             paraphrase-multilingual-MiniLM-L12-v2, in-memory only) : 420 ms for 16 chunks
+  summarization (real ChunkSummaryService.generate_summary calls, google/gemini-2.5-flash,
+             3-chunk sample, NO DB write -- pure LLM-call timing):
+             chunk[0]=10,383ms, chunk[1]=10,217ms, chunk[2]=5,881ms -- avg 8,827 ms/chunk
+             CONFIRMED via code read (ingestion_service.py:114-146): real ingestion processes
+             chunk summaries SEQUENTIALLY (`for idx, chunk_data in enumerate(chunks): ...
+             await ChunkSummaryService.generate_summary(...)`), not concurrently -- so the
+             per-chunk average is a valid multiplier for a whole-document estimate.
+  ESTIMATED TOTAL for this 16-chunk document (extraction + chunking + entity-extraction +
+             embedding + 16 x avg summarization time, sequential) :
+             1,272 + 0.4 + 76 + 420 + (16 x 8,827) = ~143,000 ms ≈ 143 seconds (~2.4 minutes)
+
+Short announcement-type PDF (461 chars extracted, 1 chunk):
+  TOTAL (excl. summarization, not re-measured for this smaller doc) : ~46 ms
+  (+ 1 chunk summarization, ~8.8s estimated from the same per-chunk average above) ≈ ~8.9 seconds
+
+Short 1-page announcement's overwhelming majority of indexing time is dominated by the
+single LLM summarization call, same as the larger document -- summarization is consistently the
+bottleneck stage regardless of document size, not extraction/chunking/embedding.
+
+=== 18. VPS hardware (actual, read-only) ===
+ vCPU: 4 (nproc)
+ RAM: 15.62 GiB total (docker), ~15Gi per `free -h`
+ Disk: 193G total, 131G used (68%), 62G available
+ NOTE: this is smaller than CLAUDE.md §24.2's recommended initial spec (8 vCPU/16GB/160GB) --
+ actual provisioned VPS is 4 vCPU, matching RAM, slightly larger disk. Worth noting as a real
+ gap between documented target and actual deployment.
+
+=== 19. CPU/RAM snapshot ===
+ Idle (docker stats --no-stream):
+   backend: 0.71% CPU, 5.08 GiB RAM (32.53%)   <- high idle RAM from loaded embedding+reranker models
+   neo4j: 0.45% CPU, 752 MiB
+   postgres: 0.00% CPU, 171 MiB
+   chroma: 0.00% CPU, 56 MiB
+   (all others <2% CPU, <400MiB)
+
+ Under load (12 concurrent real /chat requests fired, snapshot taken ~2s into the burst):
+   backend: 342.50% CPU (near-saturated on a 4-vCPU host), 5.09 GiB RAM (32.60%)
+   postgres: 25.78% CPU
+   (all requests eventually returned HTTP 200 with status=service_unavailable due to the dry
+   OpenRouter account -- request latency 49-68 seconds is a RETRY/TIMEOUT artifact of the dead
+   account, NOT representative of normal end-to-end latency. The CPU spike itself IS real and
+   representative -- it reflects the ACIF+retrieval pipeline's genuine concurrent-request cost;
+   only the total wall-clock latency number is contaminated by the OpenRouter outage.)
+
+=== 20. CPU/RAM + latency under load -- CLEAN RETEST 2026-07-31, same day (OpenRouter funded,
+        no 402s -- supersedes §19's latency numbers, which were contaminated; §19's CPU numbers
+        were already valid and are corroborated here) ===
+Single non-concurrent real /chat request: 20.15s wall time, status=verified, cited answer.
+
+10 concurrent real /chat requests fired (funded account, real generation this time -- verified one
+response body directly: status=verified, 8 real citations, latency_ms=62488, not a fallback):
+  Individual request latencies: 45.9s, 55.7s, 57.6s, 59.9s, 62.6s, 63.3s, 67.0s, 71.7s, 77.1s, 81.8s
+  docker stats during burst: backend CPU 391.62% (near-total saturation of the 4-vCPU host, even
+    higher than §19's dry-account burst), backend RAM 8.04 GiB (51.47%, up from ~5.09 GiB at
+    idle/dry-account-burst -- real generation + Gate 5 claim verification hold more in memory
+    concurrently than the idle-account fast-fail path).
+
+REAL FINDING: `LLM_MAX_CONCURRENCY` is configured at 25 (not the bottleneck at n=10 concurrent
+requests). The latency degradation (20s solo vs 46-82s at 10-concurrent) is genuine CPU contention
+on this 4-vCPU host -- the ACIF+retrieval pipeline is CPU-bound, and 10 simultaneous requests
+visibly compete for the same 4 cores. This is a real, valid "high-intensity query handling"
+(CLAUDE.md §22) capacity finding: at ~10 concurrent real users, per-request latency roughly
+triples-to-quadruples versus a single request, on the currently-provisioned hardware.
