@@ -213,3 +213,43 @@ def compare_runs(
         metrics=metric_comparisons,
         attack_success=attack_success,
     )
+
+
+def compare_runs_pooled(
+    trial_pairs: Sequence[tuple[Sequence[EvaluationResult], Sequence[EvaluationResult]]],
+    run_ids_a: Sequence[str] = (),
+    run_ids_b: Sequence[str] = (),
+    config_name_a: str | None = None,
+    config_name_b: str | None = None,
+) -> ComparisonReport:
+    """Pool N repeated with/without-ACIF trial pairs for more statistical power than one run
+    affords (2026-07-18's faithfulness/answer-relevance findings were not significant at
+    n=9-10/41 and flipped direction between two single runs — see
+    evaluation/reports/2026-07-18/README.md Tier 3).
+
+    Each trial is paired by question_id independently (the same gold-QA dataset replayed N
+    times), then every trial's paired observations are concatenated into one combined list
+    before running the same Wilcoxon/McNemar tests `compare_runs` uses. This is standard
+    repeated-measures pooling — each trial is an independent replication of the same
+    question-level comparison — not a pre-averaging across trials, which would understate
+    within-condition variance and overstate confidence.
+    """
+    all_pairs: list[tuple[EvaluationResult, EvaluationResult]] = []
+    for results_a, results_b in trial_pairs:
+        all_pairs.extend(_pair_by_question(results_a, results_b))
+
+    metric_comparisons = [_wilcoxon_metric(m, all_pairs) for m in _CONTINUOUS_METRICS]
+    metric_comparisons += [_mcnemar_metric(m, all_pairs) for m in _BINARY_METRICS]
+
+    attack_pairs = [(a, b) for a, b in all_pairs if (a.category or "").lower() == "security"]
+    attack_success = _mcnemar_metric("attack_success", attack_pairs) if attack_pairs else None
+
+    return ComparisonReport(
+        run_id_a=",".join(run_ids_a),
+        run_id_b=",".join(run_ids_b),
+        config_name_a=config_name_a,
+        config_name_b=config_name_b,
+        n_paired_questions=len(all_pairs),
+        metrics=metric_comparisons,
+        attack_success=attack_success,
+    )

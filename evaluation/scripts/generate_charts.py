@@ -158,6 +158,68 @@ def fig_4_52_sus_items(out_dir: Path) -> None:
     _save(fig, out_dir, "fig_4_52_sus_items")
 
 
+def fig_ablation_quality_per_config(out_dir: Path) -> None:
+    """2026-07-24 N-gate ablation: quality metrics (precision/recall not plotted here -- they
+    are 0.0 in every condition, a pre-existing data-pinning gap, see the CSV's Catatan column)."""
+    df = pd.read_csv(CHARTS_DIR / "chart_ablation_matrix_per_config.csv")
+    x = range(len(df))
+    width = 0.2
+    cols = ["Citation_Correctness_pct", "Fallback_Correctness_pct", "Attack_Success_Rate_pct"]
+    labels = {"Citation_Correctness_pct": "Citation Correctness (%)",
+              "Fallback_Correctness_pct": "Fallback Correctness (%)",
+              "Attack_Success_Rate_pct": "Attack Success Rate (%)"}
+    fig, ax = plt.subplots(figsize=(12, 6))
+    for i, col in enumerate(cols):
+        offset = (i - (len(cols) - 1) / 2) * width
+        ax.bar([xi + offset for xi in x], df[col], width, label=labels[col])
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(df["Kondisi"], rotation=30, ha="right", fontsize=8)
+    ax.set_ylabel("Persentase (%)")
+    ax.set_title("Ablation 11-Konfigurasi ACIF: Citation, Fallback, Attack Success (2026-07-24)")
+    ax.legend()
+    _save(fig, out_dir, "fig_ablation_quality_per_config")
+
+
+def fig_ablation_faithfulness_relevance_per_config(out_dir: Path) -> None:
+    df = pd.read_csv(CHARTS_DIR / "chart_ablation_matrix_per_config.csv")
+    x = range(len(df))
+    width = 0.35
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.bar([xi - width / 2 for xi in x], df["Faithfulness"], width, label="Faithfulness (LLM-judge)")
+    ax.bar([xi + width / 2 for xi in x], df["Answer_Relevance"], width, label="Answer Relevance (LLM-judge)")
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(df["Kondisi"], rotation=30, ha="right", fontsize=8)
+    ax.set_ylabel("Skor (0-1)")
+    ax.set_ylim(0, 1.05)
+    ax.set_title("Ablation 11-Konfigurasi ACIF: Faithfulness & Answer Relevance (LLM-Judge, 2026-07-24)")
+    ax.legend()
+    _save(fig, out_dir, "fig_ablation_faithfulness_relevance_per_config")
+
+
+def fig_ablation_latency_per_config(out_dir: Path) -> None:
+    df = pd.read_csv(CHARTS_DIR / "chart_ablation_matrix_per_config.csv")
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.bar(df["Kondisi"], df["Latency_Total_ms"], color="#55A868")
+    ax.set_ylabel("Milidetik (ms)")
+    ax.set_title("Ablation 11-Konfigurasi ACIF: Rata-rata Latency Total (2026-07-24)")
+    plt.setp(ax.get_xticklabels(), rotation=30, ha="right", fontsize=8)
+    _save(fig, out_dir, "fig_ablation_latency_per_config")
+
+
+def fig_gate_impact_ranking(out_dir: Path) -> None:
+    df = pd.read_csv(CHARTS_DIR / "chart_gate_impact_ranking.csv")
+    df = df.iloc[::-1]  # reverse so largest |delta| appears at the top of the horizontal chart
+    labels = [f"{g} - {m}" for g, m in zip(df["Gate"], df["Metrik"])]
+    deltas = pd.to_numeric(df["Delta"], errors="coerce")
+    colors = ["#55A868" if d is not None and d >= 0 else "#C44E52" for d in deltas]
+    fig, ax = plt.subplots(figsize=(10, 8))
+    ax.barh(labels, deltas.fillna(0), color=colors)
+    ax.axvline(0, color="grey", linewidth=1)
+    ax.set_xlabel("Delta (Semua Gate kecuali gate ini) - (Semua Gate Aktif)")
+    ax.set_title("Peringkat Dampak per Gate ACIF (Top 20 |delta|, 2026-07-24)")
+    _save(fig, out_dir, "fig_gate_impact_ranking")
+
+
 FIGURES = [
     fig_4_39_precision_recall,
     fig_4_40_answer_quality,
@@ -166,6 +228,10 @@ FIGURES = [
     fig_4_48_latency_per_component,
     fig_4_49_p95_latency,
     fig_4_52_sus_items,
+    fig_ablation_quality_per_config,
+    fig_ablation_faithfulness_relevance_per_config,
+    fig_ablation_latency_per_config,
+    fig_gate_impact_ranking,
 ]
 
 

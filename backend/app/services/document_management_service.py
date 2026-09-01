@@ -13,6 +13,7 @@ from app.services.chunking_service import ChunkingService
 from app.services.chunk_summary_service import ChunkSummaryService
 from app.services.acif.text_normalizer import TextNormalizer
 from app.services.acif.risk_signals import RiskSignals
+from app.services.acif.semantic_injection_detector import SemanticInjectionDetector
 from app.services.graph_service import GraphService
 
 logger = logging.getLogger(__name__)
@@ -164,6 +165,9 @@ class DocumentManagementService:
             summary_result = await db.execute(summary_stmt)
             summary = summary_result.scalar_one_or_none()
 
+            risk_flags = DocumentManagementService._detect_risk_flags(chunk.original_text)
+            risk_flags.extend(await DocumentManagementService._detect_semantic_risk_flags(chunk.original_text))
+
             chunks_data.append({
                 # UUID primary key — required by the /admin/chunks/{chunk_id}/* endpoints
                 "id": str(chunk.id),
@@ -177,7 +181,7 @@ class DocumentManagementService:
                 "llm_summary": summary.llm_summary_draft if summary else None,
                 "admin_summary": summary.admin_edited_summary if summary else None,
                 "approved_summary": summary.approved_summary if summary else None,
-                "risk_flags": DocumentManagementService._detect_risk_flags(chunk.original_text),
+                "risk_flags": risk_flags,
                 "detected_entities": DocumentManagementService._detect_entities(chunk.original_text),
             })
 
@@ -291,6 +295,26 @@ class DocumentManagementService:
             flags.append("berisi pola konten ter-encode (base64/hex)")
 
         return flags
+
+    @staticmethod
+    async def _detect_semantic_risk_flags(original_text: str) -> list[str]:
+        """Paraphrase-resistant companion to `_detect_risk_flags` — a malicious source
+        document (uploaded or auto-synced) can carry an injection payload worded
+        differently from every literal RiskSignals phrase, which `_detect_risk_flags`
+        alone cannot see (same gap Gate 1's semantic layer closes for user messages —
+        see semantic_injection_detector.py). Flag only, never auto-reject: CLAUDE.md §38's
+        established pattern for risky ingested content is "detect, flag, let admin decide".
+
+        Deliberately called only from `get_chunks_for_review` (bounded to one document's
+        chunks at a time), NOT from `get_stats_summary`'s whole-corpus scan — embedding
+        every chunk in the database on every dashboard poll would be far too costly for
+        a stats endpoint; `_detect_risk_flags`'s literal check stays cheap enough for that.
+        """
+        similarity = await SemanticInjectionDetector.max_similarity_to_known_attacks(original_text)
+        bump = SemanticInjectionDetector.score_bump(similarity)
+        if bump > 0:
+            return [f"terindikasi prompt injection (kemiripan semantik {similarity:.2f})"]
+        return []
 
     @staticmethod
     def _detect_entities(original_text: str) -> list[str]:

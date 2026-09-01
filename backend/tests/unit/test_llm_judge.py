@@ -92,3 +92,81 @@ class TestJudgeAnswer:
             result = await llm_judge.judge_answer("Q?", "context", "answer")
 
         assert result is None
+
+
+@pytest.mark.asyncio
+class TestJudgeRetrievalRelevance:
+    async def test_disabled_returns_none_without_calling_llm(self, monkeypatch):
+        monkeypatch.setattr(settings, "evaluation_llm_judge_enabled", False)
+        with patch(
+            "app.evaluation.llm_judge.OpenRouterClient.generate", AsyncMock()
+        ) as mock_generate:
+            result = await llm_judge.judge_retrieval_relevance("Q?", ["chunk text"])
+
+        assert result is None
+        mock_generate.assert_not_awaited()
+
+    async def test_empty_chunk_list_returns_none(self, monkeypatch):
+        monkeypatch.setattr(settings, "evaluation_llm_judge_enabled", True)
+        result = await llm_judge.judge_retrieval_relevance("Q?", [])
+        assert result is None
+
+    async def test_blank_only_chunks_return_none(self, monkeypatch):
+        monkeypatch.setattr(settings, "evaluation_llm_judge_enabled", True)
+        result = await llm_judge.judge_retrieval_relevance("Q?", ["  ", ""])
+        assert result is None
+
+    async def test_valid_json_response_averages_scores(self, monkeypatch):
+        monkeypatch.setattr(settings, "evaluation_llm_judge_enabled", True)
+        raw = '{"relevance_scores": [1.0, 0.5, 0.0]}'
+        with patch(
+            "app.evaluation.llm_judge.OpenRouterClient.generate",
+            AsyncMock(return_value=_generation(raw)),
+        ) as mock_generate:
+            result = await llm_judge.judge_retrieval_relevance(
+                "Berapa biaya pendaftaran?", ["chunk A", "chunk B", "chunk C"]
+            )
+
+        mock_generate.assert_awaited_once()
+        assert result == pytest.approx(0.5)
+
+    async def test_markdown_fenced_json_is_parsed(self, monkeypatch):
+        monkeypatch.setattr(settings, "evaluation_llm_judge_enabled", True)
+        raw = '```json\n{"relevance_scores": [0.8]}\n```'
+        with patch(
+            "app.evaluation.llm_judge.OpenRouterClient.generate",
+            AsyncMock(return_value=_generation(raw)),
+        ):
+            result = await llm_judge.judge_retrieval_relevance("Q?", ["chunk"])
+
+        assert result == pytest.approx(0.8)
+
+    async def test_malformed_json_returns_none(self, monkeypatch):
+        monkeypatch.setattr(settings, "evaluation_llm_judge_enabled", True)
+        with patch(
+            "app.evaluation.llm_judge.OpenRouterClient.generate",
+            AsyncMock(return_value=_generation("not json at all")),
+        ):
+            result = await llm_judge.judge_retrieval_relevance("Q?", ["chunk"])
+
+        assert result is None
+
+    async def test_missing_key_returns_none(self, monkeypatch):
+        monkeypatch.setattr(settings, "evaluation_llm_judge_enabled", True)
+        with patch(
+            "app.evaluation.llm_judge.OpenRouterClient.generate",
+            AsyncMock(return_value=_generation('{"wrong_key": [1.0]}')),
+        ):
+            result = await llm_judge.judge_retrieval_relevance("Q?", ["chunk"])
+
+        assert result is None
+
+    async def test_llm_call_failure_returns_none(self, monkeypatch):
+        monkeypatch.setattr(settings, "evaluation_llm_judge_enabled", True)
+        with patch(
+            "app.evaluation.llm_judge.OpenRouterClient.generate",
+            AsyncMock(side_effect=OpenRouterError("timeout")),
+        ):
+            result = await llm_judge.judge_retrieval_relevance("Q?", ["chunk"])
+
+        assert result is None

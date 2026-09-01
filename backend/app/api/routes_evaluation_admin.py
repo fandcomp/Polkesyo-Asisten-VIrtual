@@ -666,13 +666,21 @@ async def list_evaluation_runs(limit: int = 50, offset: int = 0, db: AsyncSessio
 
 class TriggerRunRequest(BaseModel):
     run_name: str = "gold_qa_run"
-    # Thesis with/without-ACIF comparison (Evaluation Layer Phase 5): tag this run's
-    # EvaluationRun.config_name and, when ablation_disable_acif=True, bypass all 5 ACIF gates
-    # for every question (see chat_core.py's ablation_disable_acif docstring). Run once with
-    # each combination against the same dataset to produce a paired comparison — see
+    # N-gate ablation study (Evaluation Layer Phase 5, generalized 2026-07-24 from the original
+    # 2-condition with/without-ACIF comparison): tag this run's EvaluationRun.config_name. Any
+    # of the 11 keys in run_evaluation.ABLATION_GATE_MATRIX (e.g. "with_acif"/"without_acif",
+    # "gates_1", "gates_all_minus_3", ...) auto-resolves which ACIF gates run for every question
+    # (see chat_core.py's disabled_gates docstring). `ablation_disable_acif`/`disabled_gates`
+    # remain available as explicit overrides for one-off gate combinations outside the fixed
+    # matrix. Run multiple configs against the same dataset to produce paired comparisons — see
     # GET /compare.
     config_name: str = "with_acif"
     ablation_disable_acif: bool = False
+    disabled_gates: list[int] | None = None
+    # GraphRAG-isolation experiment (2026-07-25): short-circuits GraphRAG retrieval to empty
+    # while ACIF gates stay fixed at whatever config_name resolves to — see chat_core.py's
+    # disable_graph_rag docstring.
+    disable_graph_rag: bool = False
 
 
 @router.post("/runs", dependencies=[Depends(require_evaluation_tab("runs"))])
@@ -699,6 +707,8 @@ async def trigger_evaluation_run(request: TriggerRunRequest, background_tasks: B
         request.run_name,
         config_name=request.config_name,
         ablation_disable_acif=request.ablation_disable_acif,
+        disabled_gates=frozenset(request.disabled_gates) if request.disabled_gates is not None else None,
+        disable_graph_rag=request.disable_graph_rag,
     )
     return {"status": "started", "run_name": request.run_name, "config_name": request.config_name}
 
@@ -1116,11 +1126,19 @@ async def get_overview(db: AsyncSession = Depends(get_db)):
 
 
 _COMBINED_REPORT_FIELDS = [
-    "trace_id", "participant_code", "scenario_code", "question", "answer_status",
-    "fallback_triggered", "fallback_reason", "citation_present", "citation_count",
-    "retrieved_chunk_count", "selected_context_count",
+    "trace_id", "participant_code", "scenario_code", "question", "answer",
+    "answer_status", "fallback_triggered", "fallback_reason",
+    "citation_present", "citation_count", "retrieved_chunk_count", "selected_context_count",
     "acif_gate_1_status", "acif_gate_2_status", "acif_gate_3_status",
     "acif_gate_4_status", "acif_gate_5_status",
+    # Gold-QA evaluation-harness scores (evaluation_results, joined by trace_id) — empty for
+    # ordinary production chat traffic that was never part of a gold-QA run, so a reviewer can
+    # tell measured-quality rows apart from organic usage at a glance.
+    "eval_run_id", "eval_category", "eval_expected_behavior",
+    "eval_precision_at_3", "eval_recall_at_3", "eval_hit_rate_at_3",
+    "eval_citation_correct", "eval_fallback_correct",
+    "eval_faithfulness_score", "eval_answer_relevance_score",
+    "eval_hallucination_detected", "eval_attack_success",
     "total_latency_ms", "retrieval_latency_ms", "graph_latency_ms", "llm_latency_ms",
     "model_used", "created_at",
 ]
@@ -1197,16 +1215,34 @@ async def export_combined_report_csv(
     for tid, gate_num, status in gate_rows:
         gate_status_by_trace.setdefault(tid, {})[gate_num] = status
 
+    # Gold-QA evaluation-harness scores, keyed by trace_id — a trace only has a row here if it
+    # was executed by run_evaluation.py (not organic production chat traffic), so most fields
+    # below stay empty for real-user rows. Most-recent evaluation_run wins if a trace_id was
+    # somehow scored more than once (shouldn't normally happen — one gold-QA question execution
+    # produces exactly one trace_id and one evaluation_results row).
+    eval_rows = (
+        await db.execute(
+            select(EvaluationResult)
+            .where(EvaluationResult.trace_id.in_(trace_ids))
+            .order_by(EvaluationResult.created_at.desc())
+        )
+    ).scalars().all()
+    eval_by_trace: dict[str, EvaluationResult] = {}
+    for er in eval_rows:
+        eval_by_trace.setdefault(er.trace_id, er)
+
     rows = []
     for c in chat_logs:
         gates = gate_status_by_trace.get(c.trace_id, {})
         citation_count = citation_counts.get(c.trace_id, 0)
+        ev = eval_by_trace.get(c.trace_id)
         rows.append(
             {
                 "trace_id": c.trace_id,
                 "participant_code": c.participant_code,
                 "scenario_code": c.scenario_code,
                 "question": c.user_question,
+                "answer": c.final_answer,
                 "answer_status": c.answer_status,
                 "fallback_triggered": c.fallback_triggered,
                 "fallback_reason": c.fallback_reason,
@@ -1217,6 +1253,18 @@ async def export_combined_report_csv(
                 "acif_gate_1_status": gates.get(1),
                 "acif_gate_2_status": gates.get(2),
                 "acif_gate_3_status": gates.get(3),
+                "eval_run_id": str(ev.evaluation_run_id) if ev else None,
+                "eval_category": ev.category if ev else None,
+                "eval_expected_behavior": ev.expected_behavior if ev else None,
+                "eval_precision_at_3": ev.precision_at_3 if ev else None,
+                "eval_recall_at_3": ev.recall_at_3 if ev else None,
+                "eval_hit_rate_at_3": ev.hit_rate_at_3 if ev else None,
+                "eval_citation_correct": ev.citation_correct if ev else None,
+                "eval_fallback_correct": ev.fallback_correct if ev else None,
+                "eval_faithfulness_score": ev.faithfulness_score if ev else None,
+                "eval_answer_relevance_score": ev.answer_relevance_score if ev else None,
+                "eval_hallucination_detected": ev.hallucination_detected if ev else None,
+                "eval_attack_success": ev.attack_success if ev else None,
                 "acif_gate_4_status": gates.get(4),
                 "acif_gate_5_status": gates.get(5),
                 "total_latency_ms": c.total_latency_ms,

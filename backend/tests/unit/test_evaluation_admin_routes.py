@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 from fastapi import HTTPException
 
 from app.api import routes_evaluation_admin as r
-from app.db.models import AcifTraceLog, EvaluationResult, EvaluationRun
+from app.db.models import AcifTraceLog, ChatEvaluationLog, EvaluationResult, EvaluationRun
 
 
 class TestCsvExportFormatting:
@@ -110,6 +110,7 @@ class TestTriggerRunRequestAblationFields:
         request = r.TriggerRunRequest()
         assert request.config_name == "with_acif"
         assert request.ablation_disable_acif is False
+        assert request.disabled_gates is None
 
     def test_accepts_without_acif_ablation_override(self):
         request = r.TriggerRunRequest(
@@ -117,6 +118,55 @@ class TestTriggerRunRequestAblationFields:
         )
         assert request.config_name == "without_acif"
         assert request.ablation_disable_acif is True
+
+    def test_accepts_disabled_gates_for_n_gate_ablation(self):
+        request = r.TriggerRunRequest(
+            run_name="ablation_run", config_name="gates_all_minus_3", disabled_gates=[3]
+        )
+        assert request.config_name == "gates_all_minus_3"
+        assert request.disabled_gates == [3]
+
+
+@pytest.mark.asyncio
+class TestTriggerEvaluationRunForwardsDisabledGates:
+    async def test_forwards_disabled_gates_as_frozenset(self, monkeypatch):
+        from fastapi import BackgroundTasks
+
+        captured: dict = {}
+
+        def fake_add_task(func, *args, **kwargs):
+            captured["func"] = func
+            captured["args"] = args
+            captured["kwargs"] = kwargs
+
+        monkeypatch.setattr(r.settings, "evaluation_runner_enabled", True)
+        background_tasks = BackgroundTasks()
+        background_tasks.add_task = fake_add_task
+        request = r.TriggerRunRequest(
+            run_name="ablation_run", config_name="gates_1_2", disabled_gates=[3, 4, 5]
+        )
+
+        await r.trigger_evaluation_run(request, background_tasks)
+
+        assert captured["kwargs"]["disabled_gates"] == frozenset({3, 4, 5})
+        assert captured["kwargs"]["config_name"] == "gates_1_2"
+
+    async def test_disabled_gates_none_when_not_provided(self, monkeypatch):
+        from fastapi import BackgroundTasks
+
+        captured: dict = {}
+
+        def fake_add_task(func, *args, **kwargs):
+            captured["kwargs"] = kwargs
+
+        monkeypatch.setattr(r.settings, "evaluation_runner_enabled", True)
+        background_tasks = BackgroundTasks()
+        background_tasks.add_task = fake_add_task
+        request = r.TriggerRunRequest(run_name="ablation_run", config_name="with_acif")
+
+        await r.trigger_evaluation_run(request, background_tasks)
+
+        assert captured["kwargs"]["disabled_gates"] is None
 
 
 @pytest.mark.asyncio
@@ -182,3 +232,82 @@ class TestCompareEvaluationRuns:
         assert payload["n_paired_questions"] == 2
         precision_metric = next(m for m in payload["metrics"] if m["metric"] == "precision_at_3")
         assert precision_metric["mean_delta"] == pytest.approx(0.6)
+
+
+@pytest.mark.asyncio
+class TestExportCombinedReportCsv:
+    """2026-07-23: combined-report.csv previously joined chat/retrieval/citation/ACIF-gate data
+    only — it never included the answer text or the gold-QA evaluation-harness scores
+    (precision/recall/faithfulness/citation_correct/etc from evaluation_results), so a reviewer
+    couldn't see quality evidence and the underlying chat log in one place."""
+
+    async def _run_export(self, chat_log, eval_result):
+        chat_lookup = MagicMock()
+        chat_lookup.scalars.return_value.all.return_value = [chat_log]
+        retrieval_counts_lookup = MagicMock()
+        retrieval_counts_lookup.all.return_value = [(chat_log.trace_id, 5)]
+        selected_counts_lookup = MagicMock()
+        selected_counts_lookup.all.return_value = [(chat_log.trace_id, 3)]
+        citation_counts_lookup = MagicMock()
+        citation_counts_lookup.all.return_value = [(chat_log.trace_id, 1)]
+        gate_rows_lookup = MagicMock()
+        gate_rows_lookup.all.return_value = [(chat_log.trace_id, 1, "pass")]
+        eval_lookup = MagicMock()
+        eval_lookup.scalars.return_value.all.return_value = [eval_result] if eval_result else []
+
+        db = AsyncMock()
+        db.execute = AsyncMock(
+            side_effect=[
+                chat_lookup,
+                retrieval_counts_lookup,
+                selected_counts_lookup,
+                citation_counts_lookup,
+                gate_rows_lookup,
+                eval_lookup,
+            ]
+        )
+        response = await r.export_combined_report_csv(db=db)
+        body = b"".join([c.encode("utf-8") if isinstance(c, str) else c async for c in response.body_iterator])
+        return body.decode("utf-8")
+
+    async def test_includes_answer_text_and_eval_scores_for_gold_qa_trace(self):
+        chat_log = ChatEvaluationLog(
+            trace_id="trace-1",
+            user_question="Apa syarat pendaftaran?",
+            final_answer="Syaratnya adalah ...",
+            answer_status="verified",
+        )
+        eval_result = EvaluationResult(
+            evaluation_run_id="11111111-1111-1111-1111-111111111111",
+            question_id="Q001",
+            trace_id="trace-1",
+            category="SPMB",
+            expected_behavior="answer",
+            precision_at_3=0.333,
+            recall_at_3=1.0,
+            hit_rate_at_3=1.0,
+            citation_correct=True,
+            faithfulness_score=0.9,
+        )
+
+        body = await self._run_export(chat_log, eval_result)
+
+        assert "Syaratnya adalah" in body
+        assert "0.333" in body
+        assert "SPMB" in body
+
+    async def test_organic_chat_without_eval_result_leaves_eval_fields_empty(self):
+        chat_log = ChatEvaluationLog(
+            trace_id="trace-2",
+            user_question="Halo",
+            final_answer="Halo juga",
+            answer_status="answered",
+        )
+
+        body = await self._run_export(chat_log, eval_result=None)
+
+        rows = body.split("\n")
+        header = rows[0].lstrip("﻿").split(",")
+        data_row = rows[1].split(",")
+        eval_precision_idx = header.index("eval_precision_at_3")
+        assert data_row[eval_precision_idx] == ""

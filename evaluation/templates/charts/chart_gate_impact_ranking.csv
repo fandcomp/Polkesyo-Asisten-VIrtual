@@ -1,0 +1,21 @@
+Gate,Metrik,Nilai_Semua_Gate_Aktif,Nilai_Tanpa_Gate_Ini,Delta,Persen_Perubahan,Signifikan_Statistik,Catatan
+Gate 1,Latency Total (ms),7167.804878048781,10933.975609756097,3766.1707,52.54,Ya,Delta = (Semua Gate kecuali gate ini) - (Semua Gate Aktif); negatif berarti menonaktifkan gate ini menurunkan metrik
+Gate 5,Latency Total (ms),7167.804878048781,4230.09756097561,-2937.7073,-40.98,Ya,Delta = (Semua Gate kecuali gate ini) - (Semua Gate Aktif); negatif berarti menonaktifkan gate ini menurunkan metrik
+Gate 2,Latency Total (ms),7167.804878048781,5676.682926829269,-1491.122,-20.8,Tidak,Delta = (Semua Gate kecuali gate ini) - (Semua Gate Aktif); negatif berarti menonaktifkan gate ini menurunkan metrik
+Gate 3,Latency Total (ms),7167.804878048781,6166.707317073171,-1001.0976,-13.97,Tidak,Delta = (Semua Gate kecuali gate ini) - (Semua Gate Aktif); negatif berarti menonaktifkan gate ini menurunkan metrik
+Gate 4,Latency Total (ms),7167.804878048781,7126.609756097561,-41.1951,-0.57,Tidak,Delta = (Semua Gate kecuali gate ini) - (Semua Gate Aktif); negatif berarti menonaktifkan gate ini menurunkan metrik
+Gate 4,Skor Relevansi Jawaban,0.7423076923076923,1.0,0.2577,34.72,Tidak,Delta = (Semua Gate kecuali gate ini) - (Semua Gate Aktif); negatif berarti menonaktifkan gate ini menurunkan metrik
+Gate 5,Fallback Tepat (%),0.926829268292683,0.7073170731707317,-0.2195,-23.68,Ya,Delta = (Semua Gate kecuali gate ini) - (Semua Gate Aktif); negatif berarti menonaktifkan gate ini menurunkan metrik
+Gate 4,Skor Faithfulness,0.7461538461538461,0.9461538461538462,0.2,26.8,Tidak,Delta = (Semua Gate kecuali gate ini) - (Semua Gate Aktif); negatif berarti menonaktifkan gate ini menurunkan metrik
+Gate 4,Fallback Tepat (%),0.926829268292683,0.7317073170731707,-0.1951,-21.05,Ya,Delta = (Semua Gate kecuali gate ini) - (Semua Gate Aktif); negatif berarti menonaktifkan gate ini menurunkan metrik
+Gate 2,Skor Relevansi Jawaban,0.7464285714285713,0.9142857142857144,0.1679,22.49,Tidak,Delta = (Semua Gate kecuali gate ini) - (Semua Gate Aktif); negatif berarti menonaktifkan gate ini menurunkan metrik
+Gate 1,Serangan Berhasil (%),0.0,0.1,0.1,"N/A - nilai dasar 0, persentase tidak terdefinisi",Tidak,Delta = (Semua Gate kecuali gate ini) - (Semua Gate Aktif); negatif berarti menonaktifkan gate ini menurunkan metrik
+Gate 4,Serangan Berhasil (%),0.0,0.1,0.1,"N/A - nilai dasar 0, persentase tidak terdefinisi",Tidak,Delta = (Semua Gate kecuali gate ini) - (Semua Gate Aktif); negatif berarti menonaktifkan gate ini menurunkan metrik
+Gate 5,Serangan Berhasil (%),0.0,0.1,0.1,"N/A - nilai dasar 0, persentase tidak terdefinisi",Tidak,Delta = (Semua Gate kecuali gate ini) - (Semua Gate Aktif); negatif berarti menonaktifkan gate ini menurunkan metrik
+Gate 2,Skor Faithfulness,0.7214285714285714,0.8214285714285714,0.1,13.86,Tidak,Delta = (Semua Gate kecuali gate ini) - (Semua Gate Aktif); negatif berarti menonaktifkan gate ini menurunkan metrik
+Gate 3,Skor Relevansi Jawaban,0.7423076923076923,0.8384615384615385,0.0962,12.95,Tidak,Delta = (Semua Gate kecuali gate ini) - (Semua Gate Aktif); negatif berarti menonaktifkan gate ini menurunkan metrik
+Gate 5,Skor Relevansi Jawaban,0.7269230769230769,0.823076923076923,0.0962,13.23,Tidak,Delta = (Semua Gate kecuali gate ini) - (Semua Gate Aktif); negatif berarti menonaktifkan gate ini menurunkan metrik
+Gate 1,Skor Relevansi Jawaban,0.7464285714285713,0.8357142857142856,0.0893,11.96,Tidak,Delta = (Semua Gate kecuali gate ini) - (Semua Gate Aktif); negatif berarti menonaktifkan gate ini menurunkan metrik
+Gate 3,Skor Faithfulness,0.7461538461538461,0.8192307692307692,0.0731,9.79,Tidak,Delta = (Semua Gate kecuali gate ini) - (Semua Gate Aktif); negatif berarti menonaktifkan gate ini menurunkan metrik
+Gate 1,Skor Faithfulness,0.7214285714285714,0.7821428571428571,0.0607,8.42,Tidak,Delta = (Semua Gate kecuali gate ini) - (Semua Gate Aktif); negatif berarti menonaktifkan gate ini menurunkan metrik
+Gate 5,Skor Faithfulness,0.7,0.7461538461538461,0.0462,6.59,Tidak,Delta = (Semua Gate kecuali gate ini) - (Semua Gate Aktif); negatif berarti menonaktifkan gate ini menurunkan metrik

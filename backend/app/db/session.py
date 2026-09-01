@@ -44,6 +44,10 @@ _ADDITIVE_COLUMNS: tuple[str, ...] = (
     ),
     "ALTER TABLE asq_responses ADD COLUMN IF NOT EXISTS condition_code VARCHAR(50)",
     "ALTER TABLE evaluation_results ADD COLUMN IF NOT EXISTS hit_rate_at_3 FLOAT",
+    "ALTER TABLE evaluation_results ADD COLUMN IF NOT EXISTS precision_at_5 FLOAT",
+    "ALTER TABLE evaluation_results ADD COLUMN IF NOT EXISTS recall_at_5 FLOAT",
+    "ALTER TABLE evaluation_results ADD COLUMN IF NOT EXISTS hit_rate_at_5 FLOAT",
+    "ALTER TABLE evaluation_results ADD COLUMN IF NOT EXISTS retrieval_relevance_score FLOAT",
 )
 
 

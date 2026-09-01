@@ -172,7 +172,12 @@ class ChunkingService:
         procedures) into the same chunk with no awareness of document structure at all.
         """
         chunk_size = chunk_size_tokens or (settings.chunk_size_tokens or 500)
-        overlap = overlap_tokens or (settings.chunk_overlap_tokens or 100)
+        # `overlap_tokens or default` would silently discard an explicit 0 (falsy) and
+        # substitute the ~100-token default instead -- found 2026-07-25 writing a section-
+        # boundary regression test with overlap_tokens=0: the "reset current_parts on flush"
+        # step became a no-op because the 100-token tail-carry re-absorbed the entire (tiny)
+        # just-flushed chunk right back in, making every subsequent chunk grow cumulatively.
+        overlap = overlap_tokens if overlap_tokens is not None else (settings.chunk_overlap_tokens or 100)
 
         pieces = ChunkingService._recursive_split(text, chunk_size)
         if not pieces:
@@ -195,7 +200,19 @@ class ChunkingService:
         for piece in pieces:
             piece_tokens = len(ChunkingService.tokenize(piece))
             section = ChunkingService._detect_section(piece)
-            if current_parts and current_tokens + piece_tokens > chunk_size:
+            # Found 2026-07-25 via gold-QA evaluation (Q002 "biaya pendaftaran" retrieval): the
+            # greedy merge below used to stop ONLY on token budget, so several small lettered
+            # sections (e.g. "B. Persyaratan Kelas Internasional", "C. Mekanisme Pendaftaran",
+            # "F. Biaya") got silently folded into one chunk whenever each was individually
+            # small — producing a summary/embedding that represents 4-5 unrelated topics at
+            # once, which then loses the rerank to a more topically-focused chunk for any single
+            # specific query. A detected section-heading change is now also a hard merge
+            # boundary, same as the token budget, not instead of it.
+            crosses_new_section = (
+                current_parts and section is not None
+                and current_section is not None and section != current_section
+            )
+            if current_parts and (current_tokens + piece_tokens > chunk_size or crosses_new_section):
                 flush()
                 # Overlap: carry the tail words of the previous chunk into the next one.
                 tail_words = " ".join(current_parts).split()[-overlap:] if overlap else []

@@ -91,6 +91,72 @@ async def judge_answer(
         return None
 
 
+_RELEVANCE_PROMPT = """You are an evaluation judge for a campus virtual assistant. For each \
+numbered CHUNK below, judge whether it is topically relevant/useful for answering the QUESTION \
+-- independent of whether it was the single "official" pinned source. A chunk that genuinely \
+helps answer the question counts as relevant even if it is not the exact benchmark passage.
+
+QUESTION:
+{question}
+
+CHUNKS:
+{chunks}
+
+Return ONLY a JSON object (no markdown fence, no commentary) with exactly this field:
+{{
+  "relevance_scores": [<float 0.0-1.0 per chunk, in the same order as the chunks above>]
+}}
+"""
+
+
+async def judge_retrieval_relevance(
+    question: str,
+    chunk_texts: list[str],
+    db: "AsyncSession | None" = None,
+) -> float | None:
+    """Soft/semantic complement to the exact-chunk-ID precision/recall metrics (2026-07-25):
+    scores every selected-for-context chunk in ONE batched LLM call (cheap, avoids N separate
+    calls per question) for topical relevance to the question, returning the mean score.
+
+    Returns None -- never a failing 0.0 -- when the judge is disabled, there are no chunks to
+    score, or the LLM call/parse fails. Same "None means not scored" convention as judge_answer.
+    """
+    if not settings.evaluation_llm_judge_enabled:
+        return None
+    texts = [t.strip() for t in chunk_texts if t and t.strip()]
+    if not texts:
+        return None
+
+    chunks_block = "\n\n".join(f"[{i + 1}] {t[:1500]}" for i, t in enumerate(texts))
+    prompt = _RELEVANCE_PROMPT.format(question=question.strip(), chunks=chunks_block)
+
+    try:
+        result = await OpenRouterClient.generate(
+            prompt,
+            db=db,
+            model=settings.openrouter_verification_model,
+            max_tokens=200,
+            temperature=0.0,
+            timeout=20,
+        )
+    except OpenRouterError as e:
+        logger.warning(f"Retrieval-relevance judge call failed: {e}")
+        return None
+
+    try:
+        text = result.text.strip()
+        if text.startswith("```"):
+            text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.IGNORECASE)
+        data = json.loads(text)
+        scores = [float(s) for s in data["relevance_scores"]]
+        if not scores:
+            return None
+        return sum(scores) / len(scores)
+    except (ValueError, KeyError, TypeError, json.JSONDecodeError) as e:
+        logger.warning(f"Retrieval-relevance judge response could not be parsed: {e}")
+        return None
+
+
 def _parse_judge_response(raw: str) -> JudgeResult:
     """Parse the judge's JSON object, tolerating a markdown code fence (same convention as
     OutputClaimVerifier._parse_llm_verification)."""

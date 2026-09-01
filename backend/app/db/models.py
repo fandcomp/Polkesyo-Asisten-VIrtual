@@ -535,6 +535,15 @@ class EvaluationResult(Base):
     precision_at_3 = Column(Float(), nullable=True)
     recall_at_3 = Column(Float(), nullable=True)
     hit_rate_at_3 = Column(Float(), nullable=True)
+    # @5 variants (2026-07-25): mirror max_context_chunks (the system's real retrieval width),
+    # additive alongside @3 rather than replacing it -- see metrics.py's precision_at_k/recall_at_k
+    # docstrings and the 014 migration note for why both are kept.
+    precision_at_5 = Column(Float(), nullable=True)
+    recall_at_5 = Column(Float(), nullable=True)
+    hit_rate_at_5 = Column(Float(), nullable=True)
+    # Per-chunk LLM-judge topical relevance, averaged across the selected context chunks
+    # (2026-07-25) -- a soft/semantic complement to the exact-chunk-ID metrics above.
+    retrieval_relevance_score = Column(Float(), nullable=True)
     citation_present = Column(Boolean(), nullable=True)
     citation_correct = Column(Boolean(), nullable=True)
     fallback_correct = Column(Boolean(), nullable=True)

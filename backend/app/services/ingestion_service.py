@@ -27,8 +27,14 @@ class IngestionService:
         document_version_id: str,
         document_id: str,
         filepath: str,
+        include_visual_chunks: bool = True,
     ) -> dict:
-        """Full ingestion pipeline for a document."""
+        """Full ingestion pipeline for a document.
+
+        `include_visual_chunks=False` skips Step 0 (image/table-screenshot extraction) —
+        used when re-chunking an already-ingested document (e.g. after a chunking bug fix)
+        where visual chunks are unaffected and re-running them would create duplicate
+        approved visual chunks for unchanged images (no dedup-by-image_hash exists)."""
         result = {
             "document_version_id": document_version_id,
             "chunks_created": 0,
@@ -53,7 +59,7 @@ class IngestionService:
             # for admin review — independent of text extraction below, so a
             # scanned/image-heavy PDF still gets reviewable content even if
             # text extraction finds little or nothing.
-            if filepath.lower().endswith(".pdf"):
+            if include_visual_chunks and filepath.lower().endswith(".pdf"):
                 await IngestionService._ingest_visual_chunks(
                     db, document_version_id, document_id, filepath, result
                 )
@@ -151,6 +157,7 @@ class IngestionService:
                     result["chunks_created"] += 1
 
                 except Exception as e:
+                    await db.rollback()
                     result["errors"].append(f"Chunk {idx}: {str(e)}")
 
             # Commit all chunks and summaries

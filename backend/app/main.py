@@ -96,7 +96,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 @app.on_event("startup")
 async def startup_event() -> None:
-    """Initialize database tables and warm the embedding model on startup."""
+    """Initialize database tables and warm the embedding + reranker models on startup."""
     await init_db()
 
     # Load the sentence-transformers embedding model now (a few seconds from the
@@ -104,10 +104,18 @@ async def startup_event() -> None:
     # Chroma call, where a cold load could blow the timeout.
     import asyncio
 
+    from app.services.reranker_service import RerankerService
     from app.services.vector_index_service import VectorIndexService
 
     if settings.embedding_model_name.strip():
         await asyncio.to_thread(VectorIndexService.get_embedding_function)
+
+    # Same cold-load-vs-request-timeout rationale as the embedding model above: found live
+    # (2026-07-26) that a fresh process's first RerankerService.score_pairs call blew its
+    # bounded timeout on model download/load, silently degrading that request to "no reranker
+    # signal" instead of failing loudly — warm it here instead.
+    if settings.reranker_enabled and settings.reranker_model_name.strip():
+        await asyncio.to_thread(RerankerService.get_cross_encoder)
 
 
 @app.get("/")
