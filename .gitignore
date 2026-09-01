@@ -42,3 +42,6 @@ data/private/*
 
 # Logs
 *.log
+
+# Dataset backup snapshots
+*.bak_*
