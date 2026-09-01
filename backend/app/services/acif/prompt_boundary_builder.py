@@ -43,9 +43,15 @@ class PromptBoundaryBuilder:
 
 CRITICAL RULES:
 1. Answer ONLY using official context provided below.
-2. If answer is not in the context, say (in Indonesian, per rule 6): "Informasi ini tidak
-   tersedia dalam sumber resmi yang kami muat saat ini."
-3. NEVER invent requirements, dates, fees, contacts, procedures, or regulations.
+2. Before concluding the answer is unavailable, carefully read through ALL provided source
+   blocks in full — the specific fact may be phrased differently than the question, or sit in a
+   block that also covers other programs/pathways (rule 9 means ignore the *unrelated* parts of
+   such a block, not the whole block — if any part of it answers the question, use that part).
+   Only if the specific fact truly cannot be found after this review, say (in Indonesian, per
+   rule 6): "Informasi ini tidak tersedia dalam sumber resmi yang kami muat saat ini."
+3. NEVER invent requirements, dates, fees, contacts, procedures, or regulations. This rule is
+   about not fabricating facts — it does not mean defaulting to "unavailable" out of caution
+   when the fact is genuinely present in the context per rule 2.
 4. ALWAYS cite your sources when available.
 5. Be thorough and complete: use every relevant detail present in the provided context (all
    requirements, steps, fees, dates, documents, contacts) instead of a one-line summary. Do not
@@ -90,7 +96,7 @@ If the question is outside these domains, respond in Indonesian:
         conversation_history: list[dict] | None = None,
         max_tokens: int = 4500,
         max_context_chunks: int = 5,
-        max_chars_per_chunk: int = 1600,
+        max_chars_per_chunk: int = 4000,
     ) -> PromptBoundaryResult:
         """Build bounded prompt with clear separation of concerns."""
 
@@ -207,7 +213,7 @@ RESPOND NOW:
         user_message: str,
         vector_chunks: list[VectorChunk],
         max_context_chunks: int = 5,
-        max_chars_per_chunk: int = 1600,
+        max_chars_per_chunk: int = 4000,
     ) -> PromptBoundaryResult:
         """Ablation-only baseline prompt path (evaluation_mode + ablation_disable_acif only —
         see chat_core.py). Represents "a chatbot without ACIF": retrieved chunks are dumped into
@@ -278,14 +284,20 @@ Answer:"""
     def _build_vector_section(
         chunks: list[VectorChunk],
         max_chunks: int = 5,
-        max_chars_per_chunk: int = 1600,
+        max_chars_per_chunk: int = 4000,
         include_original: bool = True,
     ) -> tuple[str, list[dict]]:
         """Build official context section from approved chunks.
 
-        max_chars_per_chunk is sized to hold a full chunk (chunks are ingested at
-        400-600 tokens, ~1600-2400 chars) rather than an early truncation that starves
-        the LLM of detail it needs for a complete, multi-part answer.
+        max_chars_per_chunk default raised 1600->4000, 2026-07-23: chunks from the newer
+        "_restructured_" ingestion pass run significantly longer than the original 400-600
+        token (~1600-2400 char) design target — one observed at 3437 chars had its answer-
+        bearing section (a "Tahap III/IV kelulusan" list) start at char offset 1649, past the
+        old 1600-char cutoff, so the LLM silently received a mid-sentence-truncated chunk with
+        the fact removed entirely and (correctly, given what it saw) said the info wasn't
+        available. 4000 comfortably covers chunks like that; the existing degrade-by-chunk-
+        count fallback in build() still protects the overall token budget if multiple chunks
+        this large are selected together.
         """
         sources = []
         sections = []

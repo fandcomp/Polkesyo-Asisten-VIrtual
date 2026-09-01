@@ -24,6 +24,19 @@ def _analysis(**overrides) -> QueryAnalysis:
     return QueryAnalysis(**defaults)
 
 
+@pytest.fixture(autouse=True)
+def _no_reranker_by_default():
+    """Reranker signal defaults to unavailable (None) for every test in this file, matching
+    production's fail-open behavior when the model can't be reached — keeps these unit tests
+    hermetic (no model download/network call) and isolates the OTHER rerank signals under
+    test. `test_reranker_signal_influences_ranking` overrides this explicitly."""
+    with patch(
+        "app.services.multi_query_retriever.RerankerService.score_pairs",
+        AsyncMock(return_value=None),
+    ):
+        yield
+
+
 def _chunk(
     chunk_id: str,
     content: str,
@@ -31,13 +44,14 @@ def _chunk(
     status: str = "approved",
     document_type: str = "",
     original_text: str | None = None,
+    document_title: str = "",
 ) -> dict:
     return {
         "chunk_id": chunk_id,
         "content": content,
         "similarity_score": similarity,
         "original_text": original_text,
-        "metadata": {"status": status, "document_type": document_type},
+        "metadata": {"status": status, "document_type": document_type, "document_title": document_title},
     }
 
 
@@ -383,3 +397,84 @@ async def test_toc_chunk_penalized_below_content_chunk():
         )
 
     assert results[0]["chunk_id"] == "content"
+
+
+def test_jalur_bonus_matching_qualifier():
+    chunk = _chunk("c1", "info", 0.5, document_title="Pedoman SPMB Mandiri Reguler SMA TA 2026-2027")
+    analysis = _analysis(resolved_question="apa syarat tinggi badan spmb jalur mandiri reguler sma")
+    from app.services.multi_query_retriever import WEIGHT_JALUR_MATCH, MultiQueryRetriever
+
+    assert MultiQueryRetriever._jalur_bonus(chunk, analysis) == pytest.approx(WEIGHT_JALUR_MATCH)
+
+
+def test_jalur_bonus_mismatched_qualifier_is_penalized():
+    chunk = _chunk("c1", "info", 0.5, document_title="Hasi Seleksi Tahap II SPMB Profesi Gelombang I 2026")
+    analysis = _analysis(resolved_question="berapa biaya pendaftaran spmb jalur mandiri reguler sma")
+    from app.services.multi_query_retriever import WEIGHT_JALUR_MISMATCH, MultiQueryRetriever
+
+    assert MultiQueryRetriever._jalur_bonus(chunk, analysis) == pytest.approx(-WEIGHT_JALUR_MISMATCH)
+
+
+def test_jalur_bonus_neutral_when_question_names_no_jalur():
+    chunk = _chunk("c1", "info", 0.5, document_title="PEDOMAN SPMB JALUR MANDIRI STR RPL 2026")
+    analysis = _analysis(resolved_question="apa saja dokumen yang perlu disiapkan saat daftar ulang")
+
+    assert MultiQueryRetriever._jalur_bonus(chunk, analysis) == pytest.approx(0.0)
+
+
+def test_jalur_bonus_neutral_when_chunk_document_names_no_jalur():
+    chunk = _chunk("c1", "info", 0.5, document_title="PENGUMUMAN HASIL SELEKSI TAHAP II")
+    analysis = _analysis(resolved_question="berapa biaya pendaftaran spmb prestasi")
+
+    assert MultiQueryRetriever._jalur_bonus(chunk, analysis) == pytest.approx(0.0)
+
+
+def test_jalur_bonus_profesi_qualifier_does_not_require_mandiri_prefix():
+    """Real title verified 2026-07-25: the Profesi document's actual title has no 'Mandiri'
+    in it at all ('Hasi Seleksi Tahap II SPMB Profesi Gelombang I 2026') -- this pins that
+    regression down."""
+    chunk = _chunk("c1", "info", 0.5, document_title="Hasi Seleksi Tahap II SPMB Profesi Gelombang I 2026")
+    analysis = _analysis(resolved_question="apa syarat pendaftaran spmb mandiri profesi")
+    from app.services.multi_query_retriever import WEIGHT_JALUR_MATCH, MultiQueryRetriever
+
+    assert MultiQueryRetriever._jalur_bonus(chunk, analysis) == pytest.approx(WEIGHT_JALUR_MATCH)
+
+
+@pytest.mark.asyncio
+async def test_reranker_signal_influences_ranking():
+    """2026-07-26 regression pin: a chunk with lower bi-encoder similarity but a dominant
+    cross-encoder relevance score (the case found live -- the answer buried in a long,
+    multi-topic chunk under-ranks on pooled embedding similarity alone) must be able to
+    outrank a higher-similarity chunk the cross-encoder considers less relevant."""
+    per_query = [
+        [
+            _chunk("high-sim-low-relevance", "informasi umum spmb", 0.9),
+            _chunk("low-sim-high-relevance", "biaya pendaftaran sebesar Rp 300.000", 0.3),
+        ]
+    ]
+
+    async def fake_score_pairs(query, texts):
+        # Mirrors production ordering (score i matches texts[i]) without depending on dict
+        # insertion order -- looks up each text's score explicitly.
+        table = {
+            "informasi umum spmb": -2.0,
+            "biaya pendaftaran sebesar Rp 300.000": 4.0,
+        }
+        return [table[t] for t in texts]
+
+    with patch(
+        "app.services.multi_query_retriever.VectorRetrieverService.retrieve",
+        AsyncMock(side_effect=per_query),
+    ), patch(
+        "app.services.multi_query_retriever.RerankerService.score_pairs",
+        AsyncMock(side_effect=fake_score_pairs),
+    ):
+        results = await MultiQueryRetriever.retrieve(
+            _analysis(
+                detected_terms=[], expanded_terms=[],
+                rewritten_queries=["apa saja biaya pendaftaran spmb"],
+            ),
+            db=None, cache_service=None,
+        )
+
+    assert results[0]["chunk_id"] == "low-sim-high-relevance"

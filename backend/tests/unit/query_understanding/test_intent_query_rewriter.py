@@ -133,3 +133,29 @@ def test_rewrite_unknown_intent_no_template():
         intent="unknown",
     )
     assert queries == ["halo"]
+
+
+def test_rewrite_prefers_matching_concept_over_unrelated_acronym_expansion():
+    """Regression test, 2026-07-22 (Q016 gold-QA flakiness): the question contains "spmb",
+    so AcronymExpander always populates expanded_terms with generic SPMB expansions
+    regardless of topic. Before the fix, expanded_terms[:1] won the `or` chain over the far
+    more specific "tertib" concept (whose own intent mapping matches the classified
+    "requirement" intent), producing a generic "persyaratan seleksi penerimaan mahasiswa
+    baru" query that pulled unrelated documents into the retrieval pool and perturbed
+    rerank's pool-relative BM25 normalization enough to occasionally drop the correct
+    "Tata Tertib Ujian CBT" chunk out of the top context window."""
+    queries = IntentQueryRewriter.rewrite(
+        resolved_question="apa konsekuensi bagi peserta yang melanggar tata tertib saat ujian cbt spmb",
+        expanded_query="apa konsekuensi bagi peserta yang melanggar tata tertib saat ujian cbt spmb seleksi penerimaan mahasiswa baru",
+        expanded_terms=[
+            "seleksi penerimaan mahasiswa baru",
+            "pmb",
+            "penerimaan mahasiswa baru",
+            "seleksi mahasiswa baru",
+        ],
+        concepts=["tertib"],
+        intent="requirement",
+    )
+    templated = next(q for q in queries if q.startswith("persyaratan"))
+    assert "tertib" in templated
+    assert "seleksi penerimaan mahasiswa baru" not in templated

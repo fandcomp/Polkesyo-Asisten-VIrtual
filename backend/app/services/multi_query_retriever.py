@@ -19,6 +19,7 @@ from app.core.config import settings
 from app.services.bm25_index import BM25Index
 from app.services.graph_service import _BIAYA_RE, _DATE_RE
 from app.services.query_understanding.schemas import QueryAnalysis
+from app.services.reranker_service import RerankerService
 from app.services.vector_retriever import VectorRetrieverService
 
 logger = logging.getLogger(__name__)
@@ -31,7 +32,16 @@ logger = logging.getLogger(__name__)
 # under-ranking a chunk that literally contains the answer's exact terms (e.g. "tinggi
 # badan", "Rp 300.000") beneath a same-document boilerplate chunk that merely uses similar
 # formal vocabulary — found live via gold-QA evaluation, confirmed by 2026 RAG literature.
-WEIGHT_SEMANTIC = 0.30
+# WEIGHT_SEMANTIC trimmed again, 0.30 -> 0.15, to make room for WEIGHT_RERANKER (2026-07-26):
+# a direct Chroma query (bi-encoder cosine similarity only, bypassing BM25/heuristics
+# entirely) found the chunk literally containing a question's answer ("Biaya pendaftaran
+# sebesar Rp 300.000...") absent from the top 100 candidates — the bi-encoder pools the whole
+# chunk into one vector, and a long, multi-topic chunk dilutes the one sentence that matters.
+# A cross-encoder (RerankerService) scores (query, chunk) jointly instead, which doesn't
+# suffer this dilution — kept as a separate signal rather than replacing WEIGHT_SEMANTIC
+# outright since the bi-encoder score is still cheap corroborating evidence when it does agree.
+WEIGHT_SEMANTIC = 0.15
+WEIGHT_RERANKER = 0.25
 WEIGHT_BM25 = 0.15
 WEIGHT_EXACT_TERM = 0.20
 WEIGHT_EXPANDED_TERM = 0.15
@@ -48,6 +58,26 @@ WEIGHT_INTENT_FIGURE = 0.10
 # topic of their document without containing any of the facts — after summaries went
 # Indonesian they started outranking the content chunks they point to.
 WEIGHT_TOC_PENALTY = 0.10
+# Jalur-name disambiguation (2026-07-25): five real jalur pendaftaran share enough
+# vocabulary ("Mandiri", "SPMB", "pendaftaran") that neither semantic similarity nor BM25
+# reliably separates them — found via gold-QA evaluation (Q002 "...Jalur Mandiri Reguler
+# SMA..." retrieved zero chunks from that jalur's own document across all top-5 candidates,
+# every single run; same pattern on Q004/Q005/Q008/Q011/Q014). None of the existing rerank
+# signals check whether a chunk's SOURCE DOCUMENT is actually about the specific jalur the
+# question names. Fixed with a symmetric bonus/penalty: if the question names exactly one
+# jalur qualifier and the chunk's document_title names a *different* one, that's positive
+# evidence of a wrong-jalur chunk, not just "no evidence for this one" — same magnitude as
+# WEIGHT_INTENT_DOCTYPE so it can't alone override a strong semantic match, but is enough to
+# break exactly the kind of near-tie this bug exploited.
+WEIGHT_JALUR_MATCH = 0.12
+WEIGHT_JALUR_MISMATCH = 0.12
+# Verified 2026-07-25 against the 5 real jalur documents' actual `documents.title` rows
+# (queried live, not guessed) -- e.g. the Profesi document's real title is "Hasi Seleksi
+# Tahap II SPMB Profesi Gelombang I 2026" (no "Mandiri" in it at all), so "mandiri profesi"
+# would never have matched; "profesi" alone is what actually appears and is still unique
+# across all 5 titles. "Mandiri" itself is deliberately excluded from this list -- it's
+# shared by multiple jalur names and would defeat the whole point of disambiguating them.
+_JALUR_QUALIFIERS: tuple[str, ...] = ("reguler sma", "profesi", "mandiri rpl", "str rpl", "prestasi", "bersama")
 
 # A detected_term whose corpus document frequency exceeds this ratio is excluded from
 # WEIGHT_EXACT_TERM eligibility — it matches too much of the collection to discriminate
@@ -208,9 +238,31 @@ class MultiQueryRetriever:
         # pool (not a global constant) — see _rerank_score's comment for why this replaced a
         # rank-based signal.
         max_bm25_score = max((c.get("bm25_score") or 0.0) for c in merged.values()) if merged else 0.0
-        for chunk in merged.values():
+
+        # Cross-encoder rerank pass over the whole merged pool in one batched call (cheaper
+        # than per-candidate calls, and RerankerService.score_pairs is already thread-offloaded
+        # + timeout-bounded). Scored against the resolved (canonical, non-rewritten) question —
+        # rewritten queries exist to widen vector/BM25 recall, but the cross-encoder should
+        # judge relevance against what the user actually asked.
+        reranker_scores_by_id: dict[str, float] = {}
+        if merged:
+            chunk_ids = list(merged.keys())
+            texts = [merged[cid].get("content") or "" for cid in chunk_ids]
+            raw_scores = await RerankerService.score_pairs(analysis.resolved_question, texts)
+            if raw_scores is not None:
+                lo, hi = min(raw_scores), max(raw_scores)
+                span = hi - lo
+                for cid, raw in zip(chunk_ids, raw_scores):
+                    # Min-max normalize within this pool (same rationale as the BM25
+                    # ratio-to-max signal above) — a raw cross-encoder logit isn't bounded to
+                    # [0, 1] and isn't comparable across different candidate pools/queries, but
+                    # relative ordering within one pool is exactly what reranking needs.
+                    reranker_scores_by_id[cid] = ((raw - lo) / span) if span > 0 else 0.5
+
+        for chunk_id, chunk in merged.items():
             chunk["rerank_score"] = MultiQueryRetriever._rerank_score(
-                chunk, analysis, graph_entities, max_bm25_score
+                chunk, analysis, graph_entities, max_bm25_score,
+                reranker_scores_by_id.get(chunk_id),
             )
 
         ranked = sorted(merged.values(), key=lambda c: c["rerank_score"], reverse=True)
@@ -223,7 +275,8 @@ class MultiQueryRetriever:
 
     @staticmethod
     def _rerank_score(
-        chunk: dict, analysis: QueryAnalysis, graph_entities: list[str], max_bm25_score: float = 0.0
+        chunk: dict, analysis: QueryAnalysis, graph_entities: list[str], max_bm25_score: float = 0.0,
+        reranker_signal: float | None = None,
     ) -> float:
         content = (chunk.get("content") or "").lower()
         content_tokens = set(re.findall(r"\w+", content))
@@ -261,6 +314,7 @@ class MultiQueryRetriever:
 
         return (
             WEIGHT_SEMANTIC * similarity
+            + WEIGHT_RERANKER * (reranker_signal if reranker_signal is not None else 0.0)
             + WEIGHT_BM25 * bm25_signal
             + WEIGHT_EXACT_TERM * (1.0 if exact_term else 0.0)
             + WEIGHT_EXPANDED_TERM * (1.0 if expanded_term else 0.0)
@@ -268,6 +322,7 @@ class MultiQueryRetriever:
             + WEIGHT_FRESHNESS * freshness
             + WEIGHT_GRAPH_SUPPORT * (1.0 if graph_support else 0.0)
             + MultiQueryRetriever._intent_bonus(chunk, analysis)
+            + MultiQueryRetriever._jalur_bonus(chunk, analysis)
             - (WEIGHT_TOC_PENALTY if MultiQueryRetriever._looks_like_toc(chunk) else 0.0)
         )
 
@@ -288,6 +343,31 @@ class MultiQueryRetriever:
             if ratio is None or ratio <= EXACT_TERM_MAX_DOC_FREQUENCY:
                 return True
         return False
+
+    @staticmethod
+    def _detected_jalur_qualifier(text: str) -> str | None:
+        text_lower = text.lower()
+        for qualifier in _JALUR_QUALIFIERS:
+            if qualifier in text_lower:
+                return qualifier
+        return None
+
+    @staticmethod
+    def _jalur_bonus(chunk: dict, analysis: QueryAnalysis) -> float:
+        """Symmetric bonus/penalty for jalur-name disambiguation — see WEIGHT_JALUR_MATCH's
+        module-level comment for the bug this fixes. Neutral (0.0) unless the question names
+        exactly one jalur qualifier AND the chunk's document_title names exactly one
+        (possibly different) qualifier — an unnamed-jalur question or an unnamed-jalur chunk
+        stays untouched by this signal."""
+        question_jalur = MultiQueryRetriever._detected_jalur_qualifier(analysis.resolved_question or "")
+        if question_jalur is None:
+            return 0.0
+        metadata = chunk.get("metadata") or {}
+        document_title = metadata.get("document_title") or ""
+        chunk_jalur = MultiQueryRetriever._detected_jalur_qualifier(document_title)
+        if chunk_jalur is None:
+            return 0.0
+        return WEIGHT_JALUR_MATCH if chunk_jalur == question_jalur else -WEIGHT_JALUR_MISMATCH
 
     @staticmethod
     def _looks_like_toc(chunk: dict) -> bool:

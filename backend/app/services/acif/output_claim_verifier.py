@@ -65,7 +65,10 @@ class OutputClaimVerifier:
         "regulation": r"(?:peraturan|regulasi|tata tertib|policy)",
     }
 
-    CRITICAL_TYPES = {"requirement", "fee", "date", "procedure", "regulation"}
+    # CLAUDE.md §19 explicitly lists contact claims among those Gate 5 must verify — "contact"
+    # was detected by CLAIM_PATTERNS but omitted here, so a hallucinated phone number/email
+    # never triggered fallback. Added, not previously present.
+    CRITICAL_TYPES = {"requirement", "fee", "date", "procedure", "regulation", "contact"}
 
     LLM_VERIFICATION_PROMPT = """You are a fact-checker for an assistant's answer, checked against OFFICIAL SOURCE TEXT.
 For EACH numbered claim below, decide whether it is supported.

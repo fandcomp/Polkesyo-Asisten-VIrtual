@@ -66,13 +66,39 @@ class Settings(BaseSettings):
     embedding_model_name: str = ""
 
     # RAG
-    rag_top_k: int = 5
+    # Widened 5->10/8->15 (2026-07-26 eval refresh), then 10->15/15->20 (2026-07-27): even
+    # after the first widen + cross-encoder reranker went live, VPS smoke-testing showed the
+    # correct chunk for Q002/Q008 entering the pool at rank 7-8 (previously absent from top-10
+    # entirely) but still missing the final top-5 the reranker outputs, and Q005/Q013's correct
+    # chunk still absent from the ~40-45 candidate pool altogether -- a further pool-width
+    # ceiling, not a reranker-scoring problem (the reranker only reorders candidates already in
+    # the pool; it cannot rescue a chunk that never entered it).
+    rag_top_k: int = 15
     # Broader recall for short/low-confidence queries (Query Understanding Layer)
-    rag_top_k_broad: int = 8
+    rag_top_k_broad: int = 20
     graph_top_k: int = 5
     rag_similarity_threshold: float = 0.35  # superseded by MultiQueryRetriever reranking
-    max_context_chunks: int = 5
+    # Widened 5->8 (2026-07-27): the 220-token rechunk (down from 500) fragmented some
+    # multi-item comparison tables (program-studi-per-jalur, tinggi-badan-per-prodi) across
+    # 3+ adjacent chunks, so no single top-5 chunk fully answers a question spanning the
+    # whole table (Q001, MH01, MH02) -- widening lets more of the fragmented-but-adjacent
+    # pieces reach the LLM together for synthesis, at the cost of ~600-700 more prompt tokens
+    # (small chunks now, well within max_context_tokens/acif_max_prompt_input_tokens budgets).
+    max_context_chunks: int = 8
     max_context_tokens: int = 4000
+
+    # Cross-encoder reranker (2026-07-26): dense embedding similarity alone was found, via
+    # live gold-QA evaluation, to rank the chunk literally containing the answer (e.g. "Biaya
+    # pendaftaran sebesar Rp 300.000") outside the top-100 candidates for a close paraphrase
+    # of the question -- the bi-encoder embedding of a long, multi-topic chunk dilutes the
+    # one sentence that matters. A cross-encoder scores (query, chunk) jointly instead of as
+    # separately-pooled vectors, which is the standard fix for exactly this failure mode.
+    # CPU-only by project policy (CLAUDE.md: no GPU/CUDA in production) -- default model is a
+    # small multilingual MiniLM cross-encoder, feasible to score a ~10-30 candidate pool per
+    # query well within CHROMA_CALL_TIMEOUT_SECONDS-scale latency.
+    reranker_enabled: bool = True
+    reranker_model_name: str = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
+    reranker_timeout_seconds: int = 8
 
     # LLM Generation
     llm_temperature: float = 0.1
@@ -83,6 +109,14 @@ class Settings(BaseSettings):
     acif_strict_mode: bool = True
     acif_input_reject_threshold: float = 0.25
     acif_input_caution_threshold: float = 0.10
+    # Gate 1 semantic layer (2026-07-26): RiskSignals is literal-phrase-only and trivially
+    # evaded by paraphrase. Thresholds calibrated against the real deployed embedding model
+    # (paraphrase-multilingual-MiniLM-L12-v2) -- see semantic_injection_detector.py's module
+    # docstring for the actual similarity numbers this was picked from.
+    acif_gate1_semantic_enabled: bool = True
+    acif_gate1_semantic_caution_similarity: float = 0.50
+    acif_gate1_semantic_reject_similarity: float = 0.72
+    acif_gate1_semantic_timeout_seconds: float = 3.0
     acif_context_keep_threshold: float = 0.75
     acif_context_verify_threshold: float = 0.50
     acif_context_min_threshold: float = 0.35

@@ -214,6 +214,47 @@ class VectorIndexService:
         )
 
     @staticmethod
+    def _delete_ids_sync(chunk_ids: list[str]) -> list[tuple[str, str | None]]:
+        """Blocking Chroma delete — must run in a thread (see class docstring note).
+
+        Chroma's `delete()` is idempotent for missing ids (no error), so callers don't need
+        to check existence first."""
+        client = VectorIndexService.get_chroma_client()
+        collection = VectorIndexService.get_active_collection(client)
+        try:
+            collection.delete(ids=chunk_ids)
+            return [(cid, None) for cid in chunk_ids]
+        except Exception as e:
+            return [(cid, str(e)) for cid in chunk_ids]
+
+    @staticmethod
+    async def remove_chunks_from_index(chunk_ids: list[str]) -> dict:
+        """Delete chunk vectors from the active Chroma collection.
+
+        MUST be called whenever a chunk transitions away from `status='approved'` (e.g.
+        superseded by document reingestion). Chroma's copy of a chunk's metadata (including
+        the `"status": "approved"` field `index_approved_chunks` writes at index time) is a
+        point-in-time snapshot — nothing re-syncs it when the Postgres row later changes, so
+        a chunk that becomes `superseded` in Postgres stays indefinitely retrievable and
+        scored as "approved" by `MultiQueryRetriever` until it's explicitly deleted here.
+        Without this, superseded/stale content can be selected into live answer context.
+        """
+        result = {"deleted_count": 0, "errors": []}
+        if not chunk_ids:
+            return result
+        timeout = CHROMA_CALL_TIMEOUT_SECONDS * max(len(chunk_ids), 1)
+        try:
+            outcomes = await asyncio.wait_for(
+                asyncio.to_thread(VectorIndexService._delete_ids_sync, chunk_ids),
+                timeout=timeout,
+            )
+            result["deleted_count"] = sum(1 for _, err in outcomes if err is None)
+            result["errors"] = [f"{cid}: {err}" for cid, err in outcomes if err]
+        except Exception as e:
+            result["errors"].append(str(e))
+        return result
+
+    @staticmethod
     async def index_approved_chunks(
         db: AsyncSession,
         document_id: str | None = None,

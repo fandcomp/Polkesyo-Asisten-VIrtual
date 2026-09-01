@@ -109,7 +109,14 @@ class IntentQueryRewriter:
 
         template = _INTENT_TEMPLATES.get(intent)
         if template:
-            terms = expanded_terms[:1] or [c for c in concepts if c in _CONCEPT_INTENTS] or []
+            # A concept whose own intent mapping matches the already-classified intent is more
+            # specific than a generic acronym expansion co-occurring in the same question (e.g.
+            # "tertib" alongside "spmb" in Q016 gold-QA) and must win the fill, or the templated
+            # query drifts generic enough to pull unrelated documents into the retrieval pool and
+            # perturb rerank's pool-relative BM25 normalization. Found via live gold-QA flakiness
+            # investigation, 2026-07-22 (see intent_query_rewriter tests for the regression case).
+            concept_terms = [c for c in concepts if _CONCEPT_INTENTS.get(c) == intent]
+            terms = concept_terms[:1] or expanded_terms[:1] or [c for c in concepts if c in _CONCEPT_INTENTS] or []
             fill = " ".join(terms) if terms else "penerimaan mahasiswa baru poltekkes"
             templated = template.format(terms=fill).strip()
             if templated not in queries:

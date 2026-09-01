@@ -2,6 +2,7 @@
 import re
 
 from app.core.config import settings
+from app.services.acif.risk_signals import RiskSignals
 from app.services.acif.schemas import ACIFDecision
 
 
@@ -146,13 +147,9 @@ class ContextIntegrityScorer:
 
     @staticmethod
     def _has_injection(text: str) -> bool:
-        """Quick injection check."""
-        injection_keywords = [
-            "ignore previous",
-            "forget all",
-            "reveal system",
-            "bypass",
-            "override",
-        ]
+        """Injection check for a retrieved chunk — reuses RiskSignals.ALL_PHRASES (the same
+        phrase list Gate 1 checks the user's own message against) instead of a small,
+        separately-maintained 5-phrase list that had drifted far out of sync with Gate 1's
+        (CLAUDE.md: no parallel mechanisms for the same detection job)."""
         text_lower = text.lower()
-        return any(kw in text_lower for kw in injection_keywords)
+        return any(phrase in text_lower for phrase in RiskSignals.ALL_PHRASES)

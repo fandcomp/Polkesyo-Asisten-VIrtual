@@ -49,6 +49,8 @@ class ChatCoreService:
         participant_code: str | None = None,
         scenario_code: str | None = None,
         ablation_disable_acif: bool = False,
+        disabled_gates: frozenset[int] | None = None,
+        disable_graph_rag: bool = False,
     ) -> ChatResponse:
         """Process user message through full pipeline.
 
@@ -57,17 +59,44 @@ class ChatCoreService:
         purely additive: when omitted (every existing/public caller), behavior is identical
         to before this parameter existed.
 
-        `ablation_disable_acif` is the thesis with/without-ACIF comparison switch (Evaluation
-        Layer Phase 5). It only ever takes effect when `evaluation_mode=True` — asserted below —
-        so no real `/chat` request can end up bypassing ACIF. When active, it bypasses all 5
-        gates (Gate 4 switches to `PromptBoundaryBuilder.build_naive`, a plain "stuff the
-        context into the prompt" baseline, rather than a no-op) to produce the "chatbot without
-        ACIF" condition for `run_evaluation.py`'s paired comparison. See CLAUDE.md §4.4/§33.11:
-        ACIF must never be bypassed for production answers.
+        `ablation_disable_acif` is the original thesis with/without-ACIF comparison switch
+        (Evaluation Layer Phase 5) — shorthand for "disable all 5 gates." `disabled_gates` is
+        the N-gate ablation study generalization (2026-07-24): an explicit subset of {1..5} to
+        bypass, enabling any of the 11 cumulative/leave-one-out configs in
+        `run_evaluation.ABLATION_GATE_MATRIX` rather than only the all-or-nothing case. Both
+        params only ever take effect when `evaluation_mode=True` — asserted below — so no real
+        `/chat` request can end up bypassing any gate. Gate 4 specifically switches to
+        `PromptBoundaryBuilder.build_naive` (a plain "stuff the context into the prompt"
+        baseline, rather than a no-op) whenever Gate 4 is in the disabled set, regardless of
+        which other gates are also disabled. See CLAUDE.md §4.4/§33.11: ACIF must never be
+        bypassed for production answers.
+
+        `disable_graph_rag` (GraphRAG-isolation experiment, 2026-07-25): short-circuits
+        GraphRAG retrieval to an empty result set, so a "Vector RAG only" condition can be
+        compared against "Vector RAG + GraphRAG" while ACIF gates stay fixed. Same
+        evaluation-mode-only-effect discipline as `disabled_gates`. Not a perfectly clean
+        control: Gate 2's `no_contradiction` bonus becomes structurally unawardable and Gate 3
+        always returns `proceed_with_caution` without graph evidence — both gates already have
+        tested graceful-empty behavior for this (`context_integrity_scorer.py`,
+        `graph_document_consistency.py`), but report this caveat alongside any comparison.
         """
-        assert not (ablation_disable_acif and not evaluation_mode), (
-            "ablation_disable_acif may only be used with evaluation_mode=True"
+        _disabled_gates: frozenset[int] = (
+            frozenset({1, 2, 3, 4, 5}) if ablation_disable_acif
+            else frozenset(disabled_gates or ())
         )
+        if not _disabled_gates.issubset({1, 2, 3, 4, 5}):
+            raise ValueError(f"disabled_gates must be a subset of {{1,2,3,4,5}}, got {_disabled_gates}")
+        assert not (_disabled_gates and not evaluation_mode), (
+            "disabled_gates/ablation_disable_acif may only be used with evaluation_mode=True"
+        )
+        assert not (disable_graph_rag and not evaluation_mode), (
+            "disable_graph_rag may only be used with evaluation_mode=True"
+        )
+        gate1_disabled = 1 in _disabled_gates
+        gate2_disabled = 2 in _disabled_gates
+        gate3_disabled = 3 in _disabled_gates
+        gate4_disabled = 4 in _disabled_gates
+        gate5_disabled = 5 in _disabled_gates
 
         # Evaluation Layer Phase 1 — trace_id correlates this turn across chat_evaluation_logs,
         # retrieval_evaluation_logs, citation_evaluation_logs, acif_trace_logs, and
@@ -202,17 +231,17 @@ class ChatCoreService:
 
         # ACIF Gate 1: Input Integrity Check
         #
-        # `ablation_disable_acif` intentionally does NOT gate real user traffic — asserted above
-        # to only ever apply when `evaluation_mode=True` (the gold-QA evaluation runner's
-        # with/without-ACIF comparison), so a real /chat request always runs Gate 1. See
+        # `disabled_gates`/`ablation_disable_acif` intentionally do NOT gate real user traffic —
+        # asserted above to only ever apply when `evaluation_mode=True` (the gold-QA evaluation
+        # runner's N-gate ablation study), so a real /chat request always runs Gate 1. See
         # CLAUDE.md §4.4/§33.11: ACIF must never be bypassed for production answers.
         _gate_t0 = time.perf_counter()
-        if ablation_disable_acif:
+        if gate1_disabled:
             gate1_result = ACIFGate1Result(
                 decision=ACIFDecision.ACCEPT,
                 score=0.0,
                 risk_signals=[],
-                reasoning="Gate 1 bypassed — ablation_disable_acif run (evaluation_mode only)",
+                reasoning="Gate 1 bypassed — N-gate ablation run (evaluation_mode only)",
             )
         else:
             gate1_result = await InputIntegrityChecker.check(message)
@@ -222,11 +251,11 @@ class ChatCoreService:
         gate_rows.append({
             "gate_number": 1,
             "gate_name": "Gate 1 - Input Intent Integrity Check",
-            "gate_status": "bypassed" if ablation_disable_acif else ChatCoreService._gate1_status(gate1_result.decision),
+            "gate_status": "bypassed" if gate1_disabled else ChatCoreService._gate1_status(gate1_result.decision),
             "risk_score": gate1_result.score,
             "risk_level": ChatCoreService._gate1_risk_level(gate1_result.score),
             "action_taken": (
-                "Bypassed for ablation (ablation_disable_acif)" if ablation_disable_acif
+                "Bypassed for N-gate ablation" if gate1_disabled
                 else "Blocked request" if gate1_result.decision == ACIFDecision.REJECT
                 else "Blocked request (out-of-domain topic)" if gate1_result.domain_violation
                 else "Proceeded with caution" if gate1_result.decision == ACIFDecision.CAUTION
@@ -332,9 +361,41 @@ class ChatCoreService:
         # Called with the resolved question + expansions so an acronym like "spmb"
         # triggers the retriever's keyword branches via its expansion.
         _graph_t0 = time.perf_counter()
-        graph_query = " ".join([analysis.resolved_question, *analysis.expanded_terms]).strip() or message
-        graph_results = await GraphRetrieverService.retrieve_by_intent(graph_query)
+        if disable_graph_rag:
+            graph_results = []
+        else:
+            graph_query = " ".join([analysis.resolved_question, *analysis.expanded_terms]).strip() or message
+            graph_results = await GraphRetrieverService.retrieve_by_intent(graph_query)
         timings["graph"] = int((time.perf_counter() - _graph_t0) * 1000)
+
+        # Log graph retrieval results alongside vector results (2026-07-23) — previously
+        # retrieval_rows only ever logged vector_results (retrieval_source hardcoded "vector"
+        # a few lines below), so the admin Retrieval evaluation tab/export never showed what
+        # GraphRAG actually contributed even though it's used for reranking (multi_query_
+        # retriever's graph_results= param), ACIF Gate 2/3 context, and the LLM prompt's
+        # STRUCTURED GRAPH EVIDENCE section (all further down this method). `selected_for_context`
+        # mirrors PromptBoundaryBuilder._build_graph_section's own `evidence[:5]` cap — the first
+        # 5 results are what the LLM actually sees; anything past that is retrieved but unused.
+        _GRAPH_EVIDENCE_LIMIT = 5
+        for rank, g in enumerate(graph_results, start=1):
+            entity_label = f"{g.get('entity_type')}: {g.get('entity_name')}"
+            if g.get("relation"):
+                entity_label = f"{g.get('related_to')} -{g['relation']}-> {g.get('entity_name')}"
+                if g.get("program_studi"):
+                    entity_label = f"{g['program_studi']} -TERSEDIA_PADA-> {entity_label}"
+            retrieval_rows.append({
+                "chunk_id": None,
+                "document_id": None,
+                "document_title": entity_label,
+                "page_number": None,
+                "chunk_type": "graph",
+                "retrieval_source": "graph",
+                "retrieval_rank": rank,
+                "retrieval_score": None,
+                "selected_for_context": rank <= _GRAPH_EVIDENCE_LIMIT,
+                "rejected_reason": None if rank <= _GRAPH_EVIDENCE_LIMIT else "graph_evidence_limit",
+                "metadata": g,
+            })
 
         # Multi-query vector retrieval over all rewritten queries (per-query cache inside).
         _retrieval_t0 = time.perf_counter()
@@ -359,9 +420,9 @@ class ChatCoreService:
         for rank, result in enumerate(vector_results, start=1):
             chunk_id = result.get("chunk_id")
 
-            if ablation_disable_acif:
-                # Gate 2 bypassed for the without-ACIF ablation condition — every retrieved
-                # chunk is kept unscored (see process_message's ablation_disable_acif docstring).
+            if gate2_disabled:
+                # Gate 2 bypassed for this ablation condition — every retrieved chunk is kept
+                # unscored (see process_message's disabled_gates docstring).
                 score_result = {"decision": "keep", "score": None}
             else:
                 # Try to get cached score
@@ -411,11 +472,11 @@ class ChatCoreService:
         gate_rows.append({
             "gate_number": 2,
             "gate_name": "Gate 2 - Retrieval Context Integrity Scoring",
-            "gate_status": "bypassed" if ablation_disable_acif else ("warn" if gate2_rejected else "pass"),
+            "gate_status": "bypassed" if gate2_disabled else ("warn" if gate2_rejected else "pass"),
             "risk_score": None,
             "risk_level": "medium" if gate2_rejected else "low",
             "action_taken": (
-                "Bypassed for ablation (ablation_disable_acif)" if ablation_disable_acif
+                "Bypassed for N-gate ablation" if gate2_disabled
                 else f"Kept {len(scored_chunks)} of {len(vector_results)} retrieved chunks; "
                 f"rejected {gate2_rejected}."
             ),
@@ -432,9 +493,9 @@ class ChatCoreService:
         _gate3_t0 = time.perf_counter()
         consistent_chunks = []
         for result, score in scored_chunks:
-            if ablation_disable_acif:
-                # Gate 3 bypassed for the without-ACIF ablation condition — no chunk is
-                # rejected on graph-consistency grounds.
+            if gate3_disabled:
+                # Gate 3 bypassed for this ablation condition — no chunk is rejected on
+                # graph-consistency grounds.
                 consistency = {"decision": "bypassed"}
             else:
                 consistency = await GraphDocumentConsistency.check_consistency(result, graph_results)
@@ -453,11 +514,11 @@ class ChatCoreService:
         gate_rows.append({
             "gate_number": 3,
             "gate_name": "Gate 3 - Graph-Document Consistency Check",
-            "gate_status": "bypassed" if ablation_disable_acif else ("warn" if gate3_rejected else "pass"),
+            "gate_status": "bypassed" if gate3_disabled else ("warn" if gate3_rejected else "pass"),
             "risk_score": None,
             "risk_level": "medium" if gate3_rejected else "low",
             "action_taken": (
-                "Bypassed for ablation (ablation_disable_acif)" if ablation_disable_acif
+                "Bypassed for N-gate ablation" if gate3_disabled
                 else f"{len(consistent_chunks)} of {len(scored_chunks)} chunks passed graph "
                 f"consistency check; {gate3_rejected} flagged inconsistent."
             ),
@@ -571,9 +632,9 @@ class ChatCoreService:
             ]
 
             # Build bounded prompt (or the naive ablation-only baseline — see
-            # process_message's ablation_disable_acif docstring)
+            # process_message's disabled_gates docstring)
             _gate4_t0 = time.perf_counter()
-            if ablation_disable_acif:
+            if gate4_disabled:
                 prompt_result = PromptBoundaryBuilder.build_naive(
                     user_message=message,
                     vector_chunks=vector_chunks,
@@ -594,12 +655,12 @@ class ChatCoreService:
             gate_rows.append({
                 "gate_number": 4,
                 "gate_name": "Gate 4 - Prompt Boundary Construction",
-                "gate_status": "bypassed" if ablation_disable_acif else "pass",
+                "gate_status": "bypassed" if gate4_disabled else "pass",
                 "risk_score": None,
                 "risk_level": "low",
                 "action_taken": (
-                    "Bypassed for ablation — naive prompt built (ablation_disable_acif)"
-                    if ablation_disable_acif
+                    "Bypassed for N-gate ablation — naive prompt built"
+                    if gate4_disabled
                     else "Built bounded prompt separating policy, context, and user input."
                 ),
                 "risk_flags": None,
@@ -680,10 +741,10 @@ class ChatCoreService:
                 error_message=str(e),
             )
 
-        # ACIF Gate 5: Output Claim Verification (skipped entirely for the without-ACIF
-        # ablation condition — the LLM's raw answer is returned with no claim verification,
+        # ACIF Gate 5: Output Claim Verification (skipped entirely when gate 5 is disabled for
+        # this ablation condition — the LLM's raw answer is returned with no claim verification,
         # no fallback-on-unsupported-claim, and no regeneration attempt)
-        if ablation_disable_acif:
+        if gate5_disabled:
             fallback_status = "answered"
             gate_rows.append({
                 "gate_number": 5,
@@ -691,10 +752,10 @@ class ChatCoreService:
                 "gate_status": "bypassed",
                 "risk_score": None,
                 "risk_level": "low",
-                "action_taken": "Bypassed for ablation (ablation_disable_acif)",
+                "action_taken": "Bypassed for N-gate ablation",
                 "risk_flags": None,
                 "public_summary": "Jawaban tidak diverifikasi (mode ablasi tanpa ACIF).",
-                "admin_summary": "Gate 5 bypassed — ablation_disable_acif run (evaluation_mode only).",
+                "admin_summary": "Gate 5 bypassed — N-gate ablation run (evaluation_mode only).",
                 "latency_ms": 0,
             })
         else:
@@ -727,16 +788,34 @@ class ChatCoreService:
                 )
 
                 # CLAUDE.md §11.6: a strongly-grounded answer with a few unsupported critical
-                # claims gets ONE corrective regeneration (drop the failing claims) and a full
-                # re-verification, instead of discarding 90%+ verified content outright. A
-                # regeneration that still fails verification falls back exactly as before.
+                # claims gets a corrective regeneration (drop the failing claims) and a full
+                # re-verification, instead of discarding 90%+ verified content outright. Up to
+                # 2 attempts (raised from 1, 2026-07-23): both answer generation and claim
+                # verification are separate LLM calls, each with its own sampling variance, so a
+                # single retry sometimes lands on a fresh borderline claim rather than resolving
+                # the original one — live production traces showed a mostly-verified (~91%
+                # confidence) answer still falling back after exactly one regeneration attempt.
+                # A regeneration that still fails after all attempts falls back exactly as
+                # before. Each attempt is a real, billed OpenRouter call — bounded at 2 to keep
+                # worst-case latency/cost for this already-rare path (~4% of traffic) in check.
                 regenerated = False
-                if OutputClaimVerifier.should_attempt_regeneration(verification_result):
+                _MAX_REGEN_ATTEMPTS = 2
+                for _regen_attempt in range(1, _MAX_REGEN_ATTEMPTS + 1):
+                    if not OutputClaimVerifier.should_attempt_regeneration(verification_result):
+                        break
                     failing_texts = OutputClaimVerifier.unsupported_critical_texts(verification_result)
                     logger.info(
-                        f"Gate 5 regeneration attempt: {len(failing_texts)} unsupported critical "
-                        f"claim(s) at {verification_result.overall_confidence:.0%} confidence"
+                        f"Gate 5 regeneration attempt {_regen_attempt}/{_MAX_REGEN_ATTEMPTS}: "
+                        f"{len(failing_texts)} unsupported critical claim(s) at "
+                        f"{verification_result.overall_confidence:.0%} confidence"
                     )
+                    # 2026-07-23 temporary debug logging: log the actual claim text (not just
+                    # count) so a persistently-failing claim across multiple regeneration
+                    # attempts can be diagnosed from production logs instead of only reproduced
+                    # locally. Safe to log: this is the LLM's OWN generated answer text, not
+                    # user input, retrieved-document content, or a secret.
+                    for _ft in failing_texts:
+                        logger.warning(f"Gate 5 unsupported claim text: {_ft!r}")
                     try:
                         _regen_t0 = time.perf_counter()
                         regen = await OpenRouterClient.generate_with_fallback(
@@ -756,29 +835,34 @@ class ChatCoreService:
                             use_llm=True,
                         )
                         timings["gate5"] += int((time.perf_counter() - _regen_t0) * 1000)
+                        answer = regen.text
+                        verification_result = reverification
+                        generation_usage = {
+                            "model": regen.model,
+                            "prompt_tokens": (generation_usage or {}).get("prompt_tokens", 0)
+                            + (regen.prompt_tokens or 0),
+                            "completion_tokens": (generation_usage or {}).get("completion_tokens", 0)
+                            + (regen.completion_tokens or 0),
+                            "cost_usd": ((generation_usage or {}).get("cost_usd") or 0)
+                            + (regen.cost_usd or 0),
+                        }
                         if not reverification.should_enforce_fallback:
-                            answer = regen.text
-                            verification_result = reverification
                             regenerated = True
-                            generation_usage = {
-                                "model": regen.model,
-                                "prompt_tokens": (generation_usage or {}).get("prompt_tokens", 0)
-                                + (regen.prompt_tokens or 0),
-                                "completion_tokens": (generation_usage or {}).get("completion_tokens", 0)
-                                + (regen.completion_tokens or 0),
-                                "cost_usd": ((generation_usage or {}).get("cost_usd") or 0)
-                                + (regen.cost_usd or 0),
-                            }
-                            logger.info("Gate 5 regeneration verified successfully")
+                            logger.info(
+                                f"Gate 5 regeneration verified successfully on attempt {_regen_attempt}"
+                            )
+                            break
                         else:
                             logger.warning(
-                                f"Gate 5 regeneration still unverified "
-                                f"({reverification.fallback_reason}); enforcing fallback"
+                                f"Gate 5 regeneration attempt {_regen_attempt} still unverified "
+                                f"({reverification.fallback_reason})"
                             )
                     except Exception as regen_exc:
-                        # Regeneration is best-effort — any failure keeps the original
-                        # (fallback-enforcing) verification result.
-                        logger.warning(f"Gate 5 regeneration failed: {regen_exc}")
+                        # Regeneration is best-effort — any failure keeps the last verification
+                        # result (answer/verification_result untouched by this attempt) and
+                        # stops retrying rather than looping on a persistently failing call.
+                        logger.warning(f"Gate 5 regeneration attempt {_regen_attempt} failed: {regen_exc}")
+                        break
 
                 # Enforce fallback if verification fails
                 if verification_result.should_enforce_fallback:

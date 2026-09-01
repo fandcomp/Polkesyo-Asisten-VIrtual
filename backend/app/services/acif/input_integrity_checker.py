@@ -2,6 +2,7 @@
 from app.services.acif.schemas import ACIFGate1Result, ACIFDecision
 from app.services.acif.text_normalizer import TextNormalizer
 from app.services.acif.risk_signals import RiskSignals
+from app.services.acif.semantic_injection_detector import SemanticInjectionDetector
 from app.core.config import settings
 
 
@@ -11,19 +12,32 @@ class InputIntegrityChecker:
     @staticmethod
     async def check(message: str) -> ACIFGate1Result:
         """Check input message for integrity issues."""
-        
+
         # Normalize text for analysis
         normalized = TextNormalizer.normalize(message)
-        
+
         # Check for known risk signals
         risk_score, signals_found = RiskSignals.get_risk_score(normalized)
-        
+
         # Check for encoded attacks
         encoded_patterns = TextNormalizer.extract_encoded_patterns(message)
         if encoded_patterns:
             risk_score = min(1.0, risk_score + 0.15)
             signals_found.extend(encoded_patterns)
-        
+
+        # Semantic layer: catches paraphrased injection/jailbreak attempts the literal
+        # phrase list above cannot (see semantic_injection_detector.py). Embeds the RAW
+        # message (not the normalized/lowercased/NFKD-decomposed form above -- the
+        # sentence-transformer is case- and punctuation-robust on natural text, and
+        # over-normalizing risks degrading embedding quality). None means "no signal
+        # available" (disabled/model failure/timeout) -- score_bump(None) is 0.0, so this
+        # fails safe to literal-only detection, never blocking on a missing signal.
+        semantic_similarity = await SemanticInjectionDetector.max_similarity_to_known_attacks(message)
+        semantic_bump = SemanticInjectionDetector.score_bump(semantic_similarity)
+        if semantic_bump > 0:
+            risk_score = min(1.0, risk_score + semantic_bump)
+            signals_found.append(f"semantic_similarity:{semantic_similarity:.2f}")
+
         # Determine decision based on thresholds from config
         reject_threshold = settings.acif_input_reject_threshold  # default 0.80
         caution_threshold = settings.acif_input_caution_threshold  # default 0.30

@@ -69,11 +69,13 @@ class TestOutputClaimVerifierFallbackEnforcement:
         result = await OutputClaimVerifier.verify(answer, [APPROVED_CHUNK], [], strict_mode=False)
         assert result.should_enforce_fallback is False
 
-    async def test_unsupported_non_critical_contact_claim_still_lowers_confidence_enough_to_fallback(self):
-        """"contact" is not in CRITICAL_TYPES, so it can never trigger the
-        unsupported-critical-claim branch on its own — but it still counts
-        toward overall_confidence, which can independently trip the
-        low-confidence fallback branch."""
+    async def test_unsupported_contact_claim_lowers_confidence_enough_to_fallback(self):
+        """"contact" is now in CRITICAL_TYPES (CLAUDE.md §19 requires contact-claim
+        verification) — with only 2 claims total this scenario also independently
+        crosses the low-confidence branch, so the reason message stays the
+        low-confidence one (that branch runs last and overwrites it). See
+        test_unsupported_critical_contact_claim_alone_enforces_fallback below for
+        the critical-branch effect isolated from the confidence-threshold effect."""
         answer = (
             "Calon mahasiswa harus melampirkan ijazah SMA untuk mendaftar jalur mandiri. "
             "Hubungi kontak admisi di nomor lain untuk info tambahan sekarang."
@@ -85,6 +87,34 @@ class TestOutputClaimVerifierFallbackEnforcement:
         assert result.overall_confidence == pytest.approx(0.5)
         assert result.should_enforce_fallback is True
         assert result.fallback_reason == "Low confidence: 50.0%"
+
+    async def test_unsupported_critical_contact_claim_alone_enforces_fallback(self):
+        """Regression test for the fix adding "contact" to CRITICAL_TYPES: an unsupported
+        contact claim must enforce fallback even when enough OTHER claims are supported
+        that overall_confidence stays at/above the low-confidence threshold (0.60) on its
+        own — i.e. the critical-claim branch, not the confidence branch, must be the one
+        catching it. Before the fix this scenario returned should_enforce_fallback=False
+        (a fabricated phone number/contact would have reached the user unblocked)."""
+        chunk_b = {
+            "content": "Proses pendaftaran jalur mandiri dilakukan secara online melalui portal resmi kampus.",
+            "approval_status": "approved",
+        }
+        answer = (
+            "Calon mahasiswa harus melampirkan ijazah SMA untuk mendaftar jalur mandiri. "
+            "Proses pendaftaran jalur mandiri dilakukan secara online melalui portal resmi kampus sekarang. "
+            "Hubungi kontak admisi di nomor sembilan sembilan sembilan untuk info tambahan."
+        )
+        result = await OutputClaimVerifier.verify(
+            answer, [APPROVED_CHUNK, chunk_b], [], strict_mode=True
+        )
+
+        assert result.total_claims == 3
+        assert result.supported_claims == 2
+        assert result.overall_confidence >= 0.6
+        assert result.claim_details[2].claim.claim_type == "contact"
+        assert result.claim_details[2].is_supported is False
+        assert result.should_enforce_fallback is True
+        assert result.fallback_reason == "Found 1 unsupported critical claim(s)"
 
 
 @pytest.mark.asyncio
